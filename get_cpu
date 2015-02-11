@@ -1,0 +1,5 @@
+#!/bin/perl -w
+@dat=`top -n 3 -b`;
+@drag=grep /\%Cpu\(s\)/,@dat;
+$drag[2]=~/\%Cpu\(s\):\s+(\S+)\sus/;
+print $1,"\n";

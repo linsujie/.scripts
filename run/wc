@@ -1,0 +1,104 @@
+#!/bin/ruby
+# ecoding: utf-8
+
+# counting specified word in a paper
+class SpWC
+  def initialize(args)
+    @str = File.new(args[1]).read.split(/[^\w_-]/).select { |x| x != '' }
+      .map { |w| w.downcase }
+    @verbtab = gentable(File.expand_path('~/.unregular_verbs'))
+    words = args[0] == '-sa' ? @str.uniq : args[2..-1]
+    @lcasemap = {}
+
+    @counts = gcmap(words)
+    @appcounts = gcmap(words.map { |w| other_tense(w) }.flatten - words)
+    count
+    print
+  end
+
+  private
+
+  def gcmap(arr)
+    Hash[arr.map { |w| [@lcasemap.store(w, w.downcase), 0] }]
+  end
+
+  def print
+    @counts.merge(@appcounts.select { |_, v| v != 0 }).sort_by { |k, v| k }
+      .each { |k, v| puts "#{@lcasemap.key(k)}:\t#{v}" }
+  end
+
+  def count
+    @str.each do |w|
+      @counts[w] += 1 if @counts[w]
+      @appcounts[w] += 1 if @appcounts[w]
+    end
+  end
+
+  def tense(word)
+    return :pro if word[-3..-1] == 'ing'
+    return :pat if word[-2..-1] == 'ed'
+    res = unregular(word)
+    return :pat if res[1..2] && res[1..2].include?(word)
+    :sim
+  end
+
+  def double?(word)
+    /^[^aeiou]+[aeiou]+[^aeioux]$/ =~ word
+  end
+
+  def unregular(word)
+    @verbtab.select { |x| x.include?(word) }.flatten
+  end
+
+  def pro2sim(word)
+    return ["#{word[0..-5]}ie", word[0..-4]] if word[-4] == 'y'
+    return [word[0..-4], word[0..-5]] if word[-4] == word[-5]
+    ["#{word[0..-4]}e", word[0..-4]]
+  end
+
+  def sim2pro(word)
+    return ["#{word[0..--3]}ying"] if word[-2..-1] == 'ie'
+    return ["#{word[0..-2]}ing"] if word[-1] == 'e'
+    return ["#{word + word[-1]}ing"] if double?(word)
+    ["#{word}ing"]
+  end
+
+  def sim2pat(word)
+    res = unregular(word)
+    return res - [word] unless res.empty?
+    return ["#{word + word[-1]}ed"] if double?(word)
+
+    case word[-1]
+    when 'y' then ["#{word[0..-2]}ied"]
+    when 'e' then ["#{word}d"]
+    else ["#{word}ed"]
+    end
+  end
+
+  def pat2sim(word)
+    res = unregular(word)[0]
+    return [res] if res
+    return [word[0..-3], word[0..-4]] if word[-4] == word[-3]
+    return ["#{word[0..-4]}y"] if word[-3..-1] == 'ied'
+    [word[0..-2], word[0..-3]]
+  end
+
+  def other_tense(word)
+    case tense(word)
+    when :sim then (sim2pat(word) + sim2pro(word)).uniq
+    when :pro
+      simple = pro2sim(word)
+      (simple + simple.map { |w| sim2pat(w) }.flatten).uniq
+    when :pat
+      simple = pat2sim(word)
+      (simple + simple.map { |w| sim2pro(w) }.flatten).uniq
+    end
+  end
+
+  def gentable(fname)
+    File.new(fname).each.to_a.map { |line| line.split(' ') }.uniq
+  end
+end
+
+scount = !ARGV.each { |arg| break if /(-s|--specified)/ =~ arg }
+scount ? SpWC.new(ARGV) : system("/bin/wc #{ARGV.join(' ')}")

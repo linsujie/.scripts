@@ -1,0 +1,32 @@
+#!/home/linsj/bin/ruby
+# encoding: utf-8
+
+def deal(line, ind, num)
+  line[0] = line[0].rjust(5) if line[0]
+  line[0] += ' ' if ind == 0
+  just = ->(str) { ind == 0 ? str.ljust(13) : str.rjust(13) }
+  (1..8).each { |i| line[i] = just.call(line[i]) } if (0..num).include?(ind)
+  line.join(' ')
+end
+
+def prints(arr, num, fname = nil)
+  file = fname ? File.new(fname, 'w') : $stdout
+  file.puts arr.each_with_index.to_a.map! { |line, ind| deal(line, ind, num) }
+end
+
+def assign(fmarg, flike, ind)
+  puts "\t#{fmarg[ind][1]} => #{flike[ind - 1]}"
+  fmarg[ind][1] = flike[ind - 1]
+end
+
+tail = ARGV[0] || 'PSR'
+
+flike = File.new("out/galp#{tail}.likestats").each.to_a[3..-1]
+         .map { |line| line.split(' ')[1] }
+para_num = flike.size
+fmarg = File.new("out/galp#{tail}.margestats").each.map { |ln| ln.split(' ') }
+
+puts "params:"
+(1..para_num).each { |ind| assign(fmarg, flike, ind) }
+
+prints(fmarg, para_num, "out/galp#{tail}.margestats")

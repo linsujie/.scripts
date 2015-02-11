@@ -1,0 +1,2 @@
+#!/bin/bash
+[ `ps x | grep 'nm-applet' | awk '{print $1}' | wc -w` == "1" ] && nm-applet

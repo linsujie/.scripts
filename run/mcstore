@@ -1,0 +1,53 @@
+#!/home/linsj/bin/ruby
+# encoding: utf-8
+
+def show_list(list, spl, transmap = { '' => '[null]' })
+  str = list.map { |val| transmap[val] || val }
+    .each_with_index.map { |cont, ind| "#{ind + 1}.#{cont}" }.join(spl)
+  puts str
+end
+
+def fit?(f, tail)
+  /(?:\w+#{tail}[_.]\w+|\/#{tail}[-:.\w]+$)/ =~ f
+end
+
+def copy(p, f, dir, tail)
+  return unless fit?("#{p}/#{f}", tail)
+  puts "storing: #{p}/#{f}"
+  `cp --parents #{p}/#{f} #{dir}`
+end
+
+def copy_task(tail, paths)
+  dir = `echo $HOME`.chomp + '/recdat/' + tail  + $rectime + $postfix
+  puts 'creating dir: ' + dir
+  `mkdir #{dir}`
+  paths.each { |p| Dir.foreach(p) { |f| copy(p, f, dir, tail) } }
+
+  subs = "s#file_root = chains/.\\+#file_root = #{dir}/chains/galp#{tail}#g"
+  `sed -i "#{subs}" #{dir}/inifile/distgalp*.ini`
+end
+
+$yard, $postfix = Time.now - (ARGV[0] || 1).to_f * 3600, ARGV[1] || ''
+$rectime = Time.now.strftime('%m.%d-%H:%M')
+paths = %w(chains . out out/distlog plot_data inifile)
+
+tails = Dir.foreach('chains').select { |f| File.mtime('chains/' + f) > $yard }
+  .map { |fname| /galp(?<t>[0-9a-zA-Z]+)(?:_\d)?.txt/ =~ fname && t }
+  .uniq.reject { |x| !x }
+
+puts 'There are several tasks you may want to store, choose them ' \
+  + "(or print 'a'/'q' for all/quit)."
+show_list(tails, '    ')
+
+choice = %w(a q)
+switch = loop do
+  sw =  $stdin.gets.chomp
+  break(sw) if choice.index(sw) || sw.to_i != 0
+end
+
+case true
+when 'a' == switch then tails.each { |tail| copy_task(tail, paths) }
+when 0 != switch.to_i
+  swt = switch.split(' ').map { |x| x.to_i - 1 }
+  swt.each { |ind| copy_task(tails[ind], paths) }
+end

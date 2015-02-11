@@ -1,0 +1,17 @@
+#!/home/linsj/bin/ruby
+
+def note(kind, choice)
+  Dir.foreach('plot_data/').select { |x| /galp#{kind}/ =~ x }
+    .each { |x| system("cp plot_data/#{x} plot_data/galp#{choice}#{x[4..-1]}") }
+end
+
+CH = ['DRBK', 'DR', 'DC2BK', 'DC2']
+
+puts <<-eof
+Choose one scenario:
+#{CH.each_with_index.map { |t, i| "#{i + 1}. #{t}" }.join("    ")}
+eof
+
+choice = CH[$stdin.gets.chomp.to_i - 1]
+
+['MUNP', 'TAUNP'].each { |kind| note(kind, choice) }

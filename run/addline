@@ -1,0 +1,41 @@
+#!/home/linsj/bin/ruby
+# encoding: utf-8
+
+class Interp
+  attr_reader :low, :up
+  
+  def initialize(table)
+    @table = table.map { |item| item.map { |x| Math.log(x) } }
+    @E = @table.transpose[0]
+    @F = @table.transpose[1]
+    @low, @up = Math.exp(@E[0]), Math.exp(@E[-1])
+  end
+
+  def ask(num)
+    ind = getind(Math.log(num))
+    x1, x2, y1, y2 = @E[ind -1], @E[ind], @F[ind -1], @F[ind]
+    Math.exp(y1 + (y2 - y1) * (Math.log(num) - x1) / (x2 - x1))
+  end
+
+  private
+
+  def getind(num)
+    @E.each_with_index { |x, ind| return ind if(x > num) }
+    @E.size - 1
+  end
+end
+
+def read(fname)
+  File.new(fname).each.map { |line| line.split(' ').map { |x| x.to_f } }
+end
+
+
+dat1, dat2 = Interp.new(read(ARGV[0])), Interp.new(read(ARGV[1]))
+outfile = ARGV[2] ? File.new(ARGV[2], 'w') : $stdout
+digit = 50.0
+
+low, up = [dat1.low, dat2.low].min, [dat1.up, dat2.up].max
+
+factor = (up / low)**(1.0 / digit)
+(1..digit).reduce([low]) { |a, e| a << a[-1] * factor }
+  .each { |x| outfile.puts "#{x} #{dat1.ask(x) + dat2.ask(x)}" }

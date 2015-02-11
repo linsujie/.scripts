@@ -1,0 +1,19 @@
+#!/home/linsj/bin/ruby
+
+if ARGV[0] =~ /(-h|--help)/
+  puts 'Example: mccompare MUNP'
+  exit
+end
+
+def readfile(path)
+  File.new(path).each.map { |l| l.split(' ').map { |x| x.to_f } }
+  .select { |l| l.size >= 7 && l[0] * l[1] * l[2] != 0 }.map { |l| l[0..3] }
+  .transpose[1]
+end
+
+tail, path = ARGV[0], 'out/'
+like = readfile("#{path}galp#{tail}.likestats")
+marg = readfile("#{path}galp#{tail}.margestats")
+
+puts [like].unshift(marg).transpose
+.map { |l, m| [l, m, (l - m) * 2 / (l + m) * 100].join('   ') + '%' }

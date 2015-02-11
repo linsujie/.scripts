@@ -1,0 +1,28 @@
+#!/bin/ruby
+# encoding: utf-8
+
+BIBUTILS = File.expand_path('../../bibus_utils.rb', __FILE__)
+CMDUTILS = File.expand_path('../../cmdbib_utils/cmdbib_utils.rb', __FILE__)
+USER_NAME = 'linsj'
+DATA_FILE = '~/.bibus/Daily.db'
+REF_DIR = '~/Documents/Reference'
+
+require BIBUTILS
+require CMDUTILS
+require 'curses'
+include Curses
+
+bib = Bibus.new(USER_NAME, DATA_FILE, REF_DIR)
+
+init_screen
+cbreak
+noecho
+curs_set(0)
+start_color
+use_default_colors
+colorinit
+
+cmd = CmdBib.new(lines, cols, bib)
+info = cmd.deal
+
+close_screen

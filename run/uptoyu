@@ -1,0 +1,4 @@
+#!/home/linsj/bin/ruby
+
+path = '/afs/ihep.ac.cn/users/y/yuzh/jageetmp'
+system("scp -r #{ARGV.join(' ')} yuzh@lxslc.ihep.ac.cn:#{path}")

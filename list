@@ -1,0 +1,10 @@
+#!/usr/bin/ruby
+require '~/.scripts/bibus_utils.rb'
+
+username="linsj"
+datafile=".bibus/Data/Daily.db"
+user_s="linsj"
+
+bib=BibusSearch.new(username, user_s, datafile)
+bib.list ARGV[1] if ARGV[0] == 'item'
+bib.listnote ARGV[1] if ARGV[0] == 'note'
