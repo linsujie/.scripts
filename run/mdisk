@@ -1,0 +1,109 @@
+#!/home/linsj/bin/ruby
+# encoding: utf-8
+
+# This script is used to mount the known disk (including usb disk) easily
+
+require 'fileutils'
+
+def exit_with(str)
+  puts str
+  exit
+end
+
+def base(file)
+  file.gsub(%r(^.+/([^/]+)$), '\1')
+end
+
+def parent(file)
+  file.gsub(%r((^.+)/[^/]+$), '\1')
+end
+
+def linkpt(lnfile)
+  File.expand_path("#{parent(lnfile)}/#{File.readlink(lnfile)}")
+end
+
+def unescape(src)
+  String.class_eval(%Q("#{src}"))
+end
+
+def deal_fdisk(line, on_disk, labels)
+  ftype = FS_CLASS.map { |term| break term if line.end_with?(term) }
+  exit_with(NO_FTYPE_ERR + line) if ftype.is_a?(Array)
+  dev = line.split(' ')[0]
+  lab = unescape(labels[dev]).encode('utf-8', 'gbk')
+  [dev, on_disk[dev], ftype, lab.empty? ? nil : lab]
+end
+
+def form_ch(ind, info)
+  type, lab = "[#{info[2]}]", info[3] || info[0]
+  #type = "[#{info[2]}]" # info[3] ? nil : "[#{info[2]}]"
+
+  dir = info[1] ? "#{info[1]}" : nil
+
+  "\t\e\[1m#{ind + 1}. #{lab}\t\e\[36m#{dir}\e\[0m\t\e\[35m#{type}\e\[0m\n"
+end
+
+def d_ask(disks)
+  loop do
+    puts ASK_WITCH + disks.each_with_index
+      .map { |x, i| form_ch(i, x) }.join('')
+
+    ch = $stdin.gets.chomp
+    break :quit if %w(q quit Q Quit).include?(ch)
+
+    ind = ch.to_i
+    break disks[ind - 1] if (1..disks.size).include?(ind)
+
+    puts HINT
+  end
+end
+
+def mount(dev, path)
+  command = 'sudo mount -o ' \
+    + M_OPTION.each.map { |o, v| "#{o}=#{v}" }.join(',') + " #{dev} #{path}"
+  FileUtils.mkdir(path) unless File.exist?(path)
+  
+  p command
+  system(command)
+end
+
+def unmount(path)
+  system("sudo umount #{path}")
+  exit_with(UNMOUNT_FAIL_ERR) if Dir["#{path}/{*,.*}"].size > 2
+  system("rm -rf #{path}")
+end
+
+NO_FTYPE_ERR = "\e\[33mThere is a disk with unknown file type:\e\[0m\n  "
+UNMOUNT_FAIL_ERR = "\e\[31m\e\[1mError: Unmount failed\e\[0m\n"
+ASK_WITCH = "\e\[33mWhich disk do you want to mount (umount)?\e\[0m\n"
+HINT = "\e\[33m\e\[1mPlease input a number.\e\[0m\n"
+QUIT_HINT = "\e\[33m\e\[1mStop mounting (unmounting)...\e\[0m\n"
+
+LABEL_PATH = '/dev/disk/by-label/'
+M_DIR = '~/mnt'
+
+USER = `echo $USER`.chomp
+M_OPTION = { iocharset: 'utf8', uid: USER, gid: USER, fmask: '133', \
+             dmask: '022' }
+
+FS_CLASS = ['HPFS/NTFS/exFAT', 'Linux', 'Linux LVM', "W95 Ext'd (LBA)"]
+FS_IGNORE = ['Linux LVM', "W95 Ext'd (LBA)"]
+DIR_IGNORE = ['/home', '/boot']
+
+on_disk = Hash[`df`.each_line.map { |l| [l.split[0], l.split[-1]] }]
+
+deal_label = ->(l) { [linkpt(l), base(l)] if File.symlink?(l) }
+labels = Hash[Dir["#{LABEL_PATH}/*"].map { |x| deal_label.call(x) }.compact]
+
+disks = `sudo fdisk -l`.each_line.select { |l| l =~ /^\/dev/ }
+  .map! { |l| deal_fdisk(l.chomp, on_disk, labels) }
+  .select { |x| !FS_IGNORE.include?(x[2]) }
+  .select { |x| !DIR_IGNORE.include?(x[1]) }
+disk = d_ask(disks)
+
+exit_with(QUIT_HINT) if disk == :quit
+
+mdir = File.expand_path(M_DIR)
+mpath = File.expand_path("#{mdir}/#{disk[3] || base(disk[0])}")
+FileUtils.mkdir(mdir) unless File.exist?(mdir)
+disk[1] ? unmount(disk[1]) : mount(disk[0], mpath)

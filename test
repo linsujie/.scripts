@@ -1,0 +1,15 @@
+#!/usr/bin/ruby
+require '~/.scripts/bibus_utils.rb'
+username="linsj"
+datafile=".bibus/Data/Daily.db"
+user_s="linsj"
+
+filename=ARGV[0] or filename="back_filename"
+hdir="/home/#{user_s}/"
+tmpfile="#{hdir}Documents/tmp.bib"
+refdir="#{hdir}Documents/Reference/"
+
+bib=Bibus.new username,user_s,datafile
+bibitem=bib.readtmp(tmpfile)
+p bibitem
+some = 'Yuan'

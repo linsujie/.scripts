@@ -1,0 +1,120 @@
+#!/home/linsj/bin/ruby
+# encoding: utf-8
+
+require '~/.scripts/mcutils.rb'
+require 'fileutils'
+
+# To print the information in recdat dir quickly
+class PrintInfo
+  attr_reader :file
+
+  def initialize
+    @label, @labelold, @pad = nil, nil, ''
+  end
+
+  def ini(prefix, postfix, kind)
+    @prefix, @postfix = prefix, postfix
+    @file = DirAsk.new(prefix, postfix).file[kind]
+    @file && File.exist?(@file)
+  end
+
+  def just(arr)
+    maxsize = arr.reduce(0) { |a, e| a > e.size ? a : e.size }
+    arr.map! { |line| line + Array.new(maxsize - line.size, '') }
+  end
+
+  def ltrans(str)
+    arr = str.gsub(/\e\[\dm/, '').split("\n").map { |x| x.split("\t") }
+    (just(arr).transpose << []).map { |line| line.join("\t&") }.join("\\\\\n")
+  end
+
+  def print(type = :std)
+    puts type == :latex ? ltrans(@pad) : @pad
+    @pad = ''
+  end
+
+  def ginfo(prefix, postfix, kind = :like, gwhole = false)
+    gwhole ? readfile(prefix, postfix, kind) : getparas(prefix, postfix, kind)
+  end
+
+  def readfile(prefix, postfix, kind = :like)
+    return unless ini(prefix, postfix, kind)
+    @pad += File.new(@file).read
+  end
+
+  def getparas(pre, post, kind = :like)
+    return unless ini(pre, post, kind)
+    arr = File.new(@file).each.to_a
+
+    chi = kind == :like ? format('%.6g', arr[0].split(' ')[-1].to_f * 2) : ''
+
+    st, ed = kind == :like ? [3, -1] : [1, arr.size / 2 - 1]
+    @label = "head\ttail\tchi2\t" + cutcol(arr, st, ed, 'label').join("\t")
+    @pad += "\e[1m" + @label + "\e[0m\n" if @label != @labelold
+    @pad += "#{pre}\t#{post}\t#{chi}\t" + cutcol(arr, st, ed).join("\t") + "\n"
+    @labelold = @label
+  end
+
+  private
+
+  TRANSMAP = { 'log[m_{\chi}/GeV]' => 'log(m_chi)', \
+               'log(<\sigma v>/(cm^3 * s^{-1}))' => 'log(sv)', \
+               'log[E^e_{br}/MeV]' => 'log(E^e_bk)', \
+               'log[E^e_{br1}/MeV]' => 'log(E_bk1)', \
+               'log[E^e_{br2}/MeV]' => 'log(E_bk2)', \
+               'log[A_{psr}]' => 'log(A_psr)', \
+               'log[E_c/MeV]' => 'log(E_c)', \
+  }
+
+  def reform(line)
+    trans = ->(str) { TRANSMAP[str] ? TRANSMAP[str] : str }
+    line.select { |w| w.to_f != 0 } \
+      << trans.call(line.select { |w| w.to_f == 0 }.join(' '))
+  end
+
+  def cutcol(list, st, ed, kind = 'para')
+    list = list[st..ed].map { |l| reform(l.split(' ')) }.transpose
+    kind == 'para' ? list[1].map { |n| format('%g', n) } : list[-1]
+  end
+end
+
+def genfixs(pre, post)
+  pre.is_a?(Array) ? pre.map { |i| [i, post] } : post.map { |i| [pre, i] }
+end
+
+def getasks
+  puts 'Any other chains?'
+  $stdin.gets.chomp.split(' ')
+end
+
+def delete(path)
+  puts "rm #{path}?(y/n)"
+  `rm -rf #{path}` if $stdin.gets.chomp == 'y'
+end
+
+OUTKIND = { 'la' => :latex, 's' => :std }
+type = OUTKIND[ARGV[-1]] || :std
+argv = OUTKIND[ARGV[-1]] ? ARGV[0..-2] : ARGV
+
+ch, pairs = argv[0], argv[1..-1]
+postfix = pairs[1] && pairs[-1]
+
+case ch
+when 'cl' then FileUtils.cp(DirAsk.new(pairs[0], postfix, 0).file[:like], './')
+when 'cm' then FileUtils.cp(DirAsk.new(pairs[0], postfix, 0).file[:marg], './')
+when 'cly' then FileUtils.cp(DirAsk.new(pairs[0], postfix).file[:like], './')
+when 'cmy' then FileUtils.cp(DirAsk.new(pairs[0], postfix).file[:marg], './')
+when 'ca'
+  tar = DirAsk.new(pairs[0], postfix).file
+  FileUtils.cp([tar[:like], tar[:marg]], 'out/')
+  FileUtils.cp(tar[:cov], './')
+when 'd' then delete(DirAsk.new(pairs[0], postfix).path)
+else
+  kind = ch[0] == 'l' ? :like : :marg
+  pr, po = ch[1] == 'r' ? [pairs[0..-2], pairs[-1]] : [pairs[0], pairs[1..-1]]
+  fixs = pairs.size > 1 ? genfixs(pr, po) : [[pairs[0], nil]]
+  pri = PrintInfo.new
+  fixs.each { |pref, postf| pri.ginfo(pref, postf, kind, fixs.size == 1) }
+
+  pri.print(type)
+end

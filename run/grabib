@@ -1,0 +1,64 @@
+#!/bin/ruby
+# encoding: utf-8
+
+# A class to grab certain items from a bib file
+class Bib
+  public
+
+  def initialize(filename, idents)
+    @file, @idents, @active = File.new(filename), idents, nil
+  end
+
+  def grab
+    @file.reduce([]) { |a, e| target?(e) ? a << e : a }
+  end
+
+  def test
+    @file.each { |line| p headmatch(line) }
+  end
+
+  private
+
+  STAT = { end: :tail, tail: false, content: :content }
+
+  def target?(line)
+    @active = case true
+              when @active == :content && "}\n" == line then :end
+              when headline? && headmatch(line) then :content
+              when !!@active then STAT[@active]
+              when "\n" != line then false
+              end
+  end
+
+  def headline?
+    @active == nil || @active == :tail
+  end
+
+  def headmatch(line)
+    !@idents.each { |ident| break cut(ident) if /^@\w+{#{ident},/ =~ line }
+  end
+
+  def cut(ident)
+    @idents.delete(ident)
+    false
+  end
+end
+
+def grip(line)
+  /\\citation{(?<idts>[\w,]+)}/ =~ line && idts.split(',')
+end
+
+def postfix(str, pos)
+  str.gsub(/(\w+)(\.\w+)?$/, '\1') + pos
+end
+
+filename = postfix(ARGV[0], '.aux')
+bibname =  postfix(ARGV[0], '.bib')
+
+idents = File.new(filename).each.map { |line| grip(line) }
+  .select { |w| w }.flatten.uniq
+
+result = Bib.new(bibname, idents).grab
+
+outset = ARGV[1] ? File.new(ARGV[1], 'w') : File.new(bibname, 'w')
+outset.puts result

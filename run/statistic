@@ -1,0 +1,51 @@
+#!/bin/ruby
+# encoding: utf-8
+
+# Defining some statistic method for Array
+class Array
+  def sum
+    reduce(0) { |a, e| a + e }
+  end
+
+  def average
+    sum / size
+  end
+
+  def variance
+    reduce(0) { |a, e| a + (e - average)**2 } / size
+  end
+
+  def deviation
+    Math.sqrt(variance)
+  end
+end
+
+def format(array)
+  array.map { |ln| ln.split(' ').map { |num| num.to_f } }
+end
+
+def readfile(filename)
+  return unless filename && File.file?(filename)
+  format(File.new(filename).each)
+end
+
+def getarg
+  ARGV.map { |num| [num.to_f] } if !ARGV.empty?
+end
+
+def getstd
+  format($stdin.each)
+end
+
+def calcarr(array)
+  array.transpose.reduce([]) { |a, e| a << yield(e) }.join("\t")
+end
+
+arr = readfile(ARGV[0]) || getarg || getstd
+
+puts <<-eof.gsub(/^\s*/, '')
+       \e[37mSum      :\e[0m #{calcarr(arr) { |col| col.sum }}
+       \e[37mAverage  :\e[0m #{calcarr(arr) { |col| col.average }}
+       \e[37mVariance :\e[0m #{calcarr(arr) { |col| col.variance }}
+       \e[37mDeviation:\e[0m #{calcarr(arr) { |col| col.deviation }}
+       eof

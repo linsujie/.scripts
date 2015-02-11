@@ -1,0 +1,9 @@
+#!/bin/bash
+
+if [ $1 == '--help' ]; then
+  echo "Usage:   pdftojpeg filename [page resolution cutting] outname"
+  echo Example: pdftojpeg test.pdf 3 300 200x100+150+30 out.jpg
+else
+  gs -dNumRenderingThreads=4 -dNOPAUSE -sDEVICE=jpeg -dFirstPage=$2 -dLastPage=$2 -sOutputFile=tmp.jpg -dJPEGQ=100 -r$3 -q $1 -c quit
+  convert tmp.jpg -crop $4 $5
+fi

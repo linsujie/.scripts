@@ -1,0 +1,4 @@
+#!/bin/ruby
+
+path = '/afs/ihep.ac.cn/users/y/yuzh/jageetmp'
+system("scp -r yuzh:#{path} ./")

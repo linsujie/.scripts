@@ -1,0 +1,276 @@
+#!/home/linsj/bin/ruby
+# encoding: utf-8
+
+require 'open4'
+
+# The class to describe the current task.
+class TaskList
+  attr_reader :to_hash
+
+  def initialize(array)
+    @to_hash = array.reduce({}) { |a, e| store(a, e) }
+  end
+
+  def head
+    @to_hash.each_key.to_a
+  end
+
+  def heads
+    @to_hash.map { |h, val| val.each_key.map { |x| [h, x] } }.to_a
+  end
+
+  def to_a
+    arr = []
+    @to_hash.each do |head, val|
+      val.each { |tail, v| arr << v.unshift(head, tail) }
+    end
+    arr
+  end
+
+  def [](key)
+    @to_hash[key]
+  end
+
+  def []=(key, val)
+    @to_hash[key] = val
+  end
+
+  def clean
+    @to_hash.each_key { |head| @to_hash[head].select! { |tail, v| v } }
+    @to_hash.select! { |head, val| !val.empty? }
+  end
+
+  private
+
+  def store(hash, ele)
+    hash[ele[0]] ||= {}
+    hash[ele[0]][ele[1]] = ele[2..-1]
+    hash
+  end
+end
+
+# Initializing the variable in MCRun
+class MCRunIni
+  def initialize(inlist, lcdir, rlog)
+    @localdir, @runlog = lcdir, rlog
+    @cur_task, @exi_task = TaskList.new(readlog(rlog)), searchdir(lcdir)
+    readinlist(inlist)
+  end
+
+  private
+
+  def formalize(opt, list, multi)
+    return @option[opt] = list[@option[opt].to_s.to_i - 1] unless multi
+    exit if @option[opt][0] == 'q'
+    @option[opt] = (1..list.size).to_a if @option[opt] == ['a']
+    return if @option[opt].map { |i| i.to_s.to_i }.reduce(0, :+) == 0
+    @option[opt].map! { |i| list[i.to_s.to_i -  1] }
+  end
+
+  MAXNUM = 6
+  TRANS = { '' => "''", "''" => '' }
+  def readlog(runlog)
+    form = ->(arr) { arr.map { |x| TRANS[x] || x } }
+    File.new(runlog).each.to_a.map { |item| form.call(item.split(' ')) }
+  end
+
+  def searchdir(localdir)
+    Dir.foreach(localdir).map { |item| /cosraymc(?<tail>\w*)/ =~ item && tail }
+      .select { |item| item }
+  end
+
+  MTVAL = [:head]
+  def readinlist(inlist)
+    @option = { choice: (inlist & CHOICE)[0], head: [] }
+    @task = @option[:choice][0] == 'k' ? @cur_task.head : @exi_task
+
+    st = ->(t, c) { MTVAL.include?(c) ?   @option[c] << t : @option[c] = t }
+    inlist.each { |t| st.call(t, cls(t)) unless CHOICE.include?(t) }
+
+    rereadinlist
+  end
+
+  def rereadinlist
+    asklist = [:choice, :head]
+    asklist << :num if @option[:choice] == 's'
+    asklist << :tail if %w(k ks c).include?(@option[:choice])
+    asklist.each { |opt| ask(opt) unless @option[opt] && @option[opt] != [] }
+  end
+
+  CHOICE = %w(k ks c g s)
+  def cls(item)
+    return :head if @task.include?(item)
+    return :num if /^[0-9]+$/ =~ item
+    :tail
+  end
+
+  CHASK = [[:c, :cosraymc], [:g, :getdist], [:k, 'kill the task(s)'], \
+           [:ks, 'kill and store the task(s)']]
+  def ask(opt)
+    case opt
+    when :choice then choose(:choice, CHASK)
+    when :head then choose(:head, genlist(@task))
+    when :num then input(:num, "chains' number")
+    when :tail then @option[:choice] =~ /^k/ ? choose_tail : input(:tail)
+    end
+  end
+
+  def choose_tail
+    tails = @option[:head].map { |h| @cur_task[h].each_key.to_a }
+    choose(:tail, genlist(tails.reduce(tails[0], :&)))
+  end
+
+  def genlist(orilist)
+    orilist.each_with_index.map { |x, i| ["#{i + 1}".to_sym, TRANS[x] || x] }
+  end
+
+  def choose(wd, list)
+    multi = MTVAL.include?(wd)
+
+    puts "Please choose the #{wd} #{multi ? "or (a/q)" : nil}:\n" \
+      + "#{list.map { |t| t.join(". ")}.join(' ' * 5)}\n"
+
+    @option[wd] = readchoice(list.transpose[0], multi)
+    formalize(wd, list.transpose[1], multi)
+    
+    choose(wd, list) unless @option[wd] && @option[wd][0]
+  end
+
+  def readchoice(list, multi)
+    ipt = $stdin.gets.chomp
+    sgl = ->(term) { list.include?(term) && term }
+    mtl = ->(t) { %w(a q).include?(t) && t || sgl.call(t.to_sym) }
+    mlts = ->(arr) { arr.map { |term| mtl.call(term) }.select { |x| x } }
+    multi ? mlts.call(ipt.split(' ')) : sgl.call(ipt.to_sym)
+  end
+
+  def input(key, words = nil)
+    puts "Please input the #{words || key}\n"
+    @option[key] = $stdin.gets.chomp
+  end
+end
+
+# Running mcmc
+class MCRun < MCRunIni
+  attr_reader :cur_task, :exi_task, :option
+
+  def initialize(inlist, lcdir = '.', rlog = File.expand_path('~/.mcruning'))
+    super(inlist, lcdir, rlog)
+  end
+
+  def act
+    @time = Time.now.strftime('%m.%d-%H:%M')
+
+    case @option[:choice]
+    when 's' then setting(@option[:num])
+    when 'c' then start_chains
+    when /^k/ then kill_chains
+    when 'g' then getdist
+    end
+    File.new(@runlog, 'w').puts(@cur_task.to_a
+           .map { |line| line.map { |x| TRANS[x] || x }.join(' ') })
+  end
+
+  private
+
+  def getdist
+    @option[:head].each do |h|
+      system("./getdist inifile/distgalp#{h}.ini" + \
+             "| tee out/distlog/#{h}#{@time}")
+    end
+  end
+
+  def kill_chains
+    # ovkill = ->(x) { "QUIT:: task (#{x}, #{@option[:tail]}) unexist." }
+    ph = ->(h) { "kill #{"and store " if @option[:choice][1]}the task #{h}?"}
+    @option[:head].map { |h| [h, confirm(ph.call(h))] }
+      .each { |h, sw| kill_task(h) if sw }
+      # .each { |x| puts ovkill.call(x) unless exist_task?(x) }
+      # .select { |x| exist_task?(x) }
+
+    @cur_task.clean
+  end
+
+  def kill_task(h)
+    k = ->(pid) { "kill -9 #{pid} && echo kill #{pid}" }
+    `ps c -p #{@cur_task[h][@option[:tail]].join(' ')}`.each_line
+      .map { |l| l.split(' ') }[1..-1]
+      .each { |l| system(k.call(l[0])) if "cosraymc#{h}" == l[4] }
+
+    @cur_task[h][@option[:tail]] = nil
+    store_task(h) if @option[:choice][1]
+  end
+
+  PATHS = %w(chains . out out/distlog plot_data inifile)
+  def store_task(head)
+    dir = "#{ENV["HOME"]}/recdat/#{head}#{@time}#{@option[:tail]}"
+    puts 'creating dir: ' + dir
+    `mkdir #{dir}`
+    PATHS.each { |p| Dir.foreach(p) { |f| copy(p, f, dir, head) } }
+    subs = "s#file_root = chains/.\\+#file_root = #{dir}/chains/galp#{head}#g"
+    `sed -i "#{subs}" #{dir}/inifile/distgalp*.ini`
+  end
+
+  def copy(p, f, dir, head)
+    return unless fit?("#{p}/#{f}", head)
+    puts "storing: #{p}/#{f}"
+    `cp --parents #{p}/#{f} #{dir}`
+  end
+
+  def fit?(f, head)
+    /(?:\w+#{head}[_.]\w+|\/#{head}[-:.\w]+$)/ =~ f
+  end
+
+  def start_chains
+    @option[:head].map { |h| [h, confirm("start new chains #{h}?")] }
+      .each { |h, sw| begin_cosray(h) if sw }
+  end
+
+  def begin_cosray(h)
+    mtrun = "QUIT:: the task (#{h}, #{@option[:tail]}) is running now."
+    return puts(mtrun) if exist_task?(h)
+    @cur_task[h] ||= {}
+    @cur_task[h][@option[:tail]] = []
+    (1..MAXNUM).each { |i| run_cosray(h, i) }
+  end
+
+  def exist_task?(head)
+    @cur_task[head] && @cur_task[head][@option[:tail]]
+  end
+
+  def run_cosray(h, i, sec = 3)
+    str = "./cosraymc#{h} inifile/galp#{h}.ini #{i} > nohup#{h}_#{i}.out & "
+    system(str + "echo $! > ~/.mcrunpid")
+    pid = File.new(File.expand_path('~/.mcrunpid')).read.chomp
+    puts "Begin (cosraymc#{h}, #{i})"
+    @cur_task[h][@option[:tail]] << pid
+    sleep(sec)
+  end
+
+  def confirm(tence)
+    puts "Do you actually want to #{tence}"
+    %w(y yes Yes Y YES).include?($stdin.gets.chomp)
+  end
+
+  def substitute(item, num, file)
+    system(%Q(sed -i "/^\s*#{item} =/s:[0-9]\\+:#{num}:g" #{file}))
+  end
+
+  def chfile(head, num)
+    puts "setting chain #{head}"
+
+    substitute('chain_num', num, "#{@localdir}/inifile/distgalp#{head}.ini")
+  end
+
+  def setting(num)
+    num = num.to_i
+    return unless num != 0
+    puts "setting chains number to #{num}"
+    substitute('MAXNUM', num, __FILE__)
+
+    @option[:head].each { |h| chfile(h, num) }
+  end
+end
+
+run = MCRun.new(ARGV, './')
+run.act

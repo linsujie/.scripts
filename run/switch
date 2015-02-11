@@ -1,0 +1,5 @@
+#!/bin/bash
+
+mv $1 tmmmmp
+mv $2 $1
+mv tmmmmp $2

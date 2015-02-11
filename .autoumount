@@ -1,0 +1,28 @@
+#!/bin/bash
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+#Initial table
+i=1
+for name in 'WIN7' 'Program' 'FREE' 'DATA'
+do
+DISKNAME[i]=$name
+i=`echo $i | awk '{print $1+1}'`
+done
+
+i=1
+for name in 'sda1' 'sda5' 'sda6' 'sda7'
+do
+DISK[i]=$name
+i=`echo $i | awk '{print $1+1}'`
+done
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+#Umount the mounted disks
+for i in `seq 4`
+do
+  if [ -e /media/${DISKNAME[i]} ] ;then
+    sudo umount /media/${DISKNAME[i]}
+    if [ `ls /media/${DISKNAME[i]}| wc -w` == 0 ] ;then
+      sudo rm -r /media/${DISKNAME[i]}
+    fi
+  fi
+done
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++

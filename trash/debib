@@ -1,0 +1,10 @@
+#!/usr/bin/ruby
+# ecoding:utf-8
+require '/home/linsj/.scripts/bibus_utils.rb'
+
+username = 'linsj'
+datafile = '.bibus/Data/Daily.db'
+
+bib = Bibus.new(username, datafile)
+bibkey = ARGV[0].chomp
+bib.d_bib(bibkey)

@@ -1,0 +1,19 @@
+#!/bin/ruby
+#encoding: utf-8
+
+class Array
+
+  def avg
+    self.reduce(0, :+) / size
+  end
+end
+
+def dealpoint(pts)
+  [pts[0].avg, pts[1].avg, (pts[1].max - pts[1].min) / 2]
+    .map { |x| format("%.4e", x) }.join(' ')
+end
+
+filename = ARGV[0] || exit
+
+puts File.new(filename).each.map { |line| line.split(' ').map { |x| x.to_f } }
+  .each_slice(3).map { |pts| dealpoint(pts.transpose) }

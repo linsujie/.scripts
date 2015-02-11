@@ -1,0 +1,7 @@
+#!/bin/bash
+git config user.name 'linsj'
+git config user.email 'lin.sujie1234@gmail.com'
+git config core.editor vim
+git config core.paper "less -N"
+git config color.diff true
+git config alias.co checkout

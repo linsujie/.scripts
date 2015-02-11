@@ -1,0 +1,21 @@
+#!/home/linsj/bin/ruby
+#encoding: utf-8
+require 'fileutils'
+
+if ARGV[0] =~ /(-h|--help)/
+ puts <<-eof
+   Example: mccpdata MUNP DC2BK
+   would copy those file plot_data/galpMUNP* to plot_data/galpDC2BKMUNP*
+ eof
+ exit
+end
+
+def copy(x, post)
+  puts "Copy: " + x + "\t" +  x.sub('galp', "galp#{post}")
+  FileUtils.cp(x, x.sub('galp', "galp#{post}"))
+end
+
+tail, post = ARGV
+
+Dir.foreach('plot_data').select { |x| x =~ /galp#{tail}/ }.map { |x| "plot_data/#{x}" }
+  .map { |x| copy(x, post) }

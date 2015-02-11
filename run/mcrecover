@@ -1,0 +1,23 @@
+#!/home/linsj/bin/ruby
+# encoding: utf-8
+
+require '~/.scripts/mcutils.rb'
+
+def geninifile(ask)
+  puts "\e[1m\e[32mgetting inifile from local file\e[0m"
+  ininame = "distgalp#{ask.tail}.ini"
+
+  system("cp --parents inifile/#{ininame} #{ask.path}")
+  subs = "s#file_root = chains/.\\+#file_root = " + \
+         "#{ask.path}/chains/galp#{ask.tail}#g"
+  system(%Q(sed -i "#{subs}" #{ask.path}/inifile/#{ininame}))
+end
+
+def recover(ask, update = false)
+  return unless ask.path
+  geninifile(ask) if !File.exist?("#{ask.path}/inifile") || update
+  system("./getdist #{ask.path}/inifile/distgalp*.ini")
+  system("cp --parents out/galp#{ask.tail}.* #{ask.path}") if update
+end
+
+recover(DirAsk.new(ARGV[0], ARGV[1]), ARGV[2] == 't')
