@@ -3,7 +3,7 @@
 USER = 'linsj'
 DIRS = { local: ['~/Documents/Reference',\
            '~/Documents/TeXfile', '~/.bibus'], \
-         sv: ['~/recdat', '~/MCGAL/GALDEF', '~/MCGAL/MCgalp/source'] }
+         sv: ['~/recdat', '~/MCGAL/GALDEF'] }
 CLS = { sv1: :sv, sv2: :sv, sv3: :sv, sv4: :sv, local: :local, nil => :local }
 OPTIONS = '-avzru --exclude="*.swp"'
 
