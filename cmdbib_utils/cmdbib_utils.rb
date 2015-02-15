@@ -286,7 +286,7 @@ class CmdBib < CmdBibBase
     @diag = Insmode.new('', [@scsize[0] / 3, @scsize[1] * 0.05],
                         [1, @scsize[1] * 0.9], :cmd, ['|', '-'])
 
-    shifts = [0, 0, wth / 7, wth * 2 / 6, wth - 2]
+    shifts = [0, 0, [wth / 7, 20].max, [wth * 2 / 6, 45].max, wth - 2]
     @list = inipanel([hght -  3, wth], shifts, 3)
 
     iniwindows(hght - 3, wth, shifts[2])
