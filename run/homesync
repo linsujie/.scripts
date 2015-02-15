@@ -33,6 +33,7 @@ def getip(line)
 end
 
 ips = `ifconfig`.each_line.map { |l| getip(l) }.compact
-local, target = ips.map { |i| checkname(i) }.compact[0].to_sym, ARGV[0].to_sym
+local = (ips.map { |i| checkname(i) }.compact[0] || "local").to_sym
+target = ARGV[0].to_sym
 
 sync(target, DIRS[CLS[local]] & DIRS[CLS[target]])
