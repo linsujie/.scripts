@@ -8,7 +8,7 @@ class Interp
   public
 
   def initialize(x, y)
-    @spectrum = [x, y].transpose
+    @spectrum = [x, y].transpose.sort_by { |x| x[0] }
   end
 
   def linask(x)
