@@ -1,0 +1,56 @@
+#!/home/linsj/bin/ruby
+# encoding: utf-8
+
+HELP = <<-eof
+This command is to determine one of the parameters or the local density for NFW profile, which is
+      rho(r) = rho_s * (r / r_s)^-gamma / (1 + (r / r_s))^{3 - gamma}
+Usage:
+  NFW_profile (density|rho_s|r_s|gamma) three_numbers
+Example:
+  NFW_profile density 0.18903 20 1.26        will echo 0.3
+  NFW_profile rho_s 0.3 20 1.26              will echo 0.18903
+eof
+
+def exits(str)
+  puts str
+  exit 0
+end
+
+def getdensity(val)
+  rho, r, gam = val[:rho_s], val[:r_s], val[:gamma]
+  rho * (RSUN / r)**-gam / (1 + (RSUN / r))**(3 - gam)
+end
+
+def getrho_s(val)
+  den, r, gam = val[:density], val[:r_s], val[:gamma]
+  den * (RSUN / r)**gam * (1 + (RSUN / r))**(3 - gam)
+end
+
+MINSTEP = 1e-5
+def getx(gamma, v, min, max) # solve x^gamma + x^3 = V for x in [min, max] with dichotomy
+  return max if max - min <= MINSTEP
+  mid = (min + max) / 2
+  return getx(gamma, v, min, mid) if (1 + mid)**(3 - gamma) * mid**gamma > v
+  return getx(gamma, v, mid, max)
+end
+
+def getr_s(val)
+  den, rho, gam = val[:density], val[:rho_s], val[:gamma]
+  return('The rho_s should be in the range [0,3]') if gam < 0 || gam > 3
+  RSUN / getx(gam, rho / den, 0, (rho / den)**(1 / gam))
+end
+
+def getgamma(val)
+  den, rho, x = val[:density], val[:rho_s], RSUN / val[:r_s]
+  Math.log(den / rho * (1 + x)**3) / Math.log(1 + 1 / x)
+end
+
+RSUN = 8.5
+
+exits(HELP) unless ARGV[0].to_s =~ /(density|rho_s|r_s|gamma)/
+ARGV[4] = 'end'
+
+vtab = [:density, :rho_s, :r_s, :gamma].reject { |x| x == ARGV[0].to_sym }
+vhash = Hash[[vtab, ARGV[1..3].map { |x| x.to_f }].transpose]
+
+puts send("get#{ARGV[0]}", vhash)
