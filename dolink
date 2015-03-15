@@ -8,7 +8,7 @@ user_s = 'linsj'
 
 def getidenti(content)
   wthto = ->(cont) { cont == "keyname" ? ' to' : '' }
-  puts "please input the #{content} you want to link#{wthto.call(content)}:\n" 
+  puts "please input the #{content} you want to link#{wthto.call(content)}:\n"
   $stdin.gets
 end
 
