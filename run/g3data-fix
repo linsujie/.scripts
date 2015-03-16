@@ -8,12 +8,33 @@ class Array
   end
 end
 
-def dealpoint(pts)
-  [pts[0].avg, pts[1].avg, (pts[1].max - pts[1].min) / 2]
-    .map { |x| format("%.4e", x) }.join(' ')
+def idpendentp(pts)
+    pts[1].map { |x| format("%.4e", x) }.uniq.size
+end
+
+def mainv(vec)
+    vec.map { |x| format("%.4e", x) }.cycle(2).each_cons(2)
+      .select { |f, s| f == s }.map { |f, s| f }.uniq[0]
+end
+
+def dealpoint(pt, ind)
+    result = case idpendentp(pt)
+             when 3 then [pt[0].avg, pt[1].avg, (pt[1].max - pt[1].min) / 2]
+             when 2 then [pt[0].avg, mainv(pt[1]), (pt[1].max - pt[1].min)]
+             when 1 then [pt[0].avg, pt[1].avg, 0]
+             end
+
+    $pnoerr << ind + 1 if idpendentp(pt) == 1
+    $phalferr << ind + 1 if idpendentp(pt) == 2
+    result.map { |x| format("%.4e", x) }.join(' ')
 end
 
 filename = ARGV[0] || exit
 
+$pnoerr, $phalferr = [], []
 puts File.new(filename).each.map { |line| line.split(' ').map { |x| x.to_f } }
-  .each_slice(3).map { |pts| dealpoint(pts.transpose) }
+  .each_slice(3).each_with_index.map { |pts, i| dealpoint(pts.transpose, i) }
+
+outst = ->(kind, inds) { "The points with #{kind} are: #{inds.join(' ')}" }
+puts outst.call('only half errbar', $phalferr) if !$phalferr.empty?
+puts outst.call('no errbar', $pnoerr) if !$pnoerr.empty?
