@@ -25,7 +25,7 @@ end
 #     |  ...              , together with the vector_x and vector_y
 class MapData
   include PlotUtils
-  attr_reader :cols, :array, :xaxis, :yaxis, :xsize, :ysize
+  attr_reader :cols, :array, :xaxis, :yaxis, :xsize, :ysize, :contval
 
   public
 
@@ -33,7 +33,26 @@ class MapData
     send("read#{kind}", inputed)
   end
 
+  def setcontour(contval)
+    @contval = contval
+  end
+
   def plot_contour(fname)
+    Gnuplot.open do |gp|
+      Gnuplot::SPlot.new(gp) do |plot|
+        plot.unset('surface')
+        plot.set('contour')
+        plot.cntrparam("level discrete #{@contval.join(', ')}")
+        plot.table(%Q("#{fname}"))
+
+        plot.data = [
+          Gnuplot::DataSet.new(@cols) do |ds|
+            ds.with = "lines"
+            ds.title = ''
+          end
+        ]
+      end
+    end
   end
 
   def printcols(fname)
