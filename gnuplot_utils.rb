@@ -37,6 +37,20 @@ class MapData
     @contval = contval
   end
 
+  def setpowscale(label = :x)
+    @xaxis.map! { |x| 10**x } if [:x, :xy].include?(label)
+    @yaxis.map! { |y| 10**y } if [:y, :xy].include?(label)
+
+    getcols
+  end
+
+  def setlogscale(label = :x)
+    @xaxis.map! { |x| Math.log10(x) } if [:x, :xy].include?(label)
+    @yaxis.map! { |y| Math.log10(y) } if [:y, :xy].include?(label)
+
+    getcols
+  end
+
   def plot_contour(fname)
     Gnuplot.open do |gp|
       Gnuplot::SPlot.new(gp) do |plot|
