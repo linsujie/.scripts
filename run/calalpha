@@ -1,13 +1,12 @@
+#!/usr/local/bin/ruby
 #!/home/linsj/bin/ruby
 # encoding: utf-8
 
 require '~/ruby_cpp/Chisq/Chisq'
 require '~/.scripts/stringtof.rb'
 
-c = Chisq.new
-n = NormalDist.new
 x, num = ARGV[0].dup.e_to_f, ARGV[1].dup.e_to_f.to_i
 
 p x, num
-puts ARGV[2] == 'r' ? c.chisq(alpha = x, num) : alpha = c.alpha(x, num)
-puts "#{format("%.3g", n.getnsig(alpha))} sigma"
+puts ARGV[2] == 'r' ? Chisq::chi2(alpha = x, num) : alpha = Chisq::alpha(x, num)
+puts "#{format("%.3g", Chisq::getnsig(alpha))} sigma"
