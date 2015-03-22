@@ -1,16 +1,7 @@
 #!/home/linsj/bin/ruby
 # encoding: utf-8
 
-require 'gnuplot'
-
-# Some util methods for gnuplot
-module PlotUtils
-  def readdata(fname)
-    File.new(fname).each.select { |l| /^#/ !~ l }
-    .map { |l| l.split(' ').map { |x| x.to_f } }
-  end
-end
-
+require File.expand_path('../PlotUtils.rb', __FILE__)
 # Dealwith the two dimension datas in format:
 #        x0 y0 value00
 #        x0 y1 value01

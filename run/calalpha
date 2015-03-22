@@ -1,7 +1,7 @@
 #!/home/linsj/bin/ruby
 # encoding: utf-8
 
-require '~/rice/Chisq/Chisq'
+require '~/ruby_cpp/Chisq/Chisq'
 require '~/.scripts/stringtof.rb'
 
 c = Chisq.new
