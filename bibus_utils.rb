@@ -409,7 +409,7 @@ class Bibus < BibusKey
   end
 
   def opbib(ident)
-    system("(gvfs-open #{@refdir}/#{ident}.pdf &)")
+    system(%Q((gvfs-open "#{@refdir}/#{ident}.pdf" &)))
     writelogfile(File.expand_path('~/.opbib_history'), ident)
   end
 
