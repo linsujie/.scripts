@@ -86,7 +86,7 @@ USER = `echo $USER`.chomp
 M_OPTION = { iocharset: 'utf8', uid: USER, gid: USER, fmask: '133', \
              dmask: '022' }
 
-FS_CLASS = ['HPFS/NTFS/exFAT', 'Linux', 'Linux LVM', "W95 Ext'd (LBA)"]
+FS_CLASS = ['HPFS/NTFS/exFAT', 'Linux', 'Linux LVM', "W95 Ext'd (LBA)", 'W95 FAT32 (LBA)']
 FS_IGNORE = ['Linux LVM', "W95 Ext'd (LBA)"]
 DIR_IGNORE = ['/home', '/boot']
 
