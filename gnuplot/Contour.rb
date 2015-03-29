@@ -2,20 +2,50 @@
 # encoding: utf-8
 
 require File.expand_path('../PlotUtils.rb', __FILE__)
+require File.expand_path('../../DailyMethod.rb', __FILE__)
 
 # To generate Gnuplot::Daataset for Contour files
+# The input information could be filename or array.
+# If the cont_val is nil, the inputed infomation would be treated as Contour
+# info, or as Table data on the other hand.
 class Contour
   include PlotUtils
   attr_reader :ds
 
-  def initialize(fname, ls)
-    data = readdata(fname).reduce({}) { |a, e| insertterm(a, e) }
-    ls = ls.map { |k, v| v.map { |i| [k, i] } }.transpose.map { |l| Hash[l] }
+  def initialize(fname, ls, cont_val = nil)
+    dealinput(fname, cont_val)
 
-    @ds = data.zip(ls).map { |h, l| get_ds(h[1].transpose[0..1], l) }
+    ls = ls.to_a.map { |k, v| v.map { |i| [k, i] } }.transpose.map { |l| Hash[l] }
+    @ds = @contarray.zip(ls).map { |h, l| get_ds(h[1].transpose[0..1], l) }
   end
 
   private
+
+  def dealinput(fname, cont_val)
+    @array = fname.is_a?(Array) && fname
+
+    defaultfile = %w(tmptable.dat conttmptable.dat)
+    @fname, @contfname = @array ? defaultfile : [fname, "cont_#{fname}"]
+
+    @array ||= readdata(@fname).map { |x| x.empty? ? [nil] * 3 : x }
+    .transpose
+
+    @contarray = cont_val ? gen_contour(cont_val, @array) : @array
+  end
+
+  def gen_contour(cont_val, arr)
+    Gnuplot.open do |gp|
+        Gnuplot::SPlot.new(gp) do |plot|
+          plot.unset('surface')
+          plot.set('contour')
+          plot.cntrparam("level discrete #{cont_val.join(',')}")
+          plot.table(%Q("#{@contfname}"))
+
+          plot.data = [ Gnuplot::DataSet.new(arr) { |ds| ds.with = "lines" }]
+        end
+    end
+    readdata(@contfname).reduce({}) { |a, e| insertterm(a, e) }
+  end
 
   def insertterm(array, term)
     if term.empty?
