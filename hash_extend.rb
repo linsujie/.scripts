@@ -1,9 +1,9 @@
 #!/bin/ruby
 
 class Hash
-  def map
-    return Hash[to_a.map { |k, v| [k, yield(v)] }] if sonless?
-    Hash[self.to_a.map { |k, v| [k, v.map { |x| yield(x) }] }]
+  def vmap
+    return Hash[map { |k, v| [k, yield(v)] }] if sonless?
+    Hash[self.map { |k, v| [k, v.vmap { |x| yield(x) }] }]
   end
 
   def sonless?
