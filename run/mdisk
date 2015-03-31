@@ -1,73 +1,16 @@
 #!/home/linsj/bin/ruby
 # encoding: utf-8
 
-# This script is used to mount the known disk (including usb disk) easily
-
 require 'fileutils'
 
-def exit_with(str)
-  puts str
-  exit
-end
-
-def unescape(src)
-  String.class_eval(%Q("#{src}"))
-end
-
-def deal_fdisk(line, on_disk, labels)
-  p line, on_disk, labels
-  ftype = FS_CLASS.map { |term| break term if line.end_with?(term) }
-  exit_with(NO_FTYPE_ERR + line) if ftype.is_a?(Array)
-  dev = line.split(' ')[0]
-  lab = unescape(labels[dev]).encode('utf-8', 'gbk')
-  [dev, on_disk[dev], ftype, lab.empty? ? nil : lab]
-end
-
-def form_ch(ind, info)
-  type, lab = "[#{info[2]}]", info[3] || info[0]
-  #type = "[#{info[2]}]" # info[3] ? nil : "[#{info[2]}]"
-
-  dir = info[1] ? "#{info[1]}" : nil
-
-  "\t\e\[1m#{ind + 1}. #{lab}\t\e\[36m#{dir}\e\[0m\t\e\[35m#{type}\e\[0m\n"
-end
-
-def d_ask(disks)
-  loop do
-    puts ASK_WITCH + disks.each_with_index
-      .map { |x, i| form_ch(i, x) }.join('')
-
-    ch = $stdin.gets.chomp
-    break :quit if %w(q quit Q Quit).include?(ch)
-
-    ind = ch.to_i
-    break disks[ind - 1] if (1..disks.size).include?(ind)
-
-    puts HINT
-  end
-end
-
-def mount(dev, path)
-  command = 'sudo mount -o ' \
-    + M_OPTION.each.map { |o, v| "#{o}=#{v}" }.join(',') + " #{dev} #{path}"
-  FileUtils.mkdir(path) unless File.exist?(path)
-  
-  p command
-  system(command)
-end
-
-def unmount(path)
-  system("sudo umount #{path}")
-  exit_with(UNMOUNT_FAIL_ERR) if Dir["#{path}/{*,.*}"].size > 2
-  system("rm -rf #{path}")
-end
+# This script is used to mount the known disk (including usb disk) easily
 
 class DiskLabel
-  
+
   LABEL_PATH = '/dev/disk/by-label/'
 
   def initialize
-    deallab = ->(l) { [linkpt(l).to_sym, base(l)] if File.symlink?(l) }
+    deallab = ->(l) { [linkpt(l).to_sym, formchar(l)] if File.symlink?(l) }
     @label = Hash[Dir["#{LABEL_PATH}/*"].map { |x| deallab.call(x) }.compact]
   end
 
@@ -76,9 +19,12 @@ class DiskLabel
   end
 
   private
+  def formchar(file)
+    unescape(file.gsub(%r(^.+/([^/]+)$), '\1')).encode('utf-8', 'gbk')
+  end
 
-  def base(file)
-    file.gsub(%r(^.+/([^/]+)$), '\1')
+  def unescape(src)
+    String.class_eval(%Q("#{src}"))
   end
 
   def parent(file)
@@ -139,7 +85,7 @@ class DiskInfo
     term.insert(1, nil) unless term[1] == '*'
     term[COLNUM - 2] = term[COLNUM - 2..-1].join(' ')
     term[COLNUM - 1], term[COLNUM] = @mp.path(term[0]), @label.lab(term[0])
-    
+
     hash = Hash[COLS[1..COLNUM].zip(term[1..COLNUM])]
     hash[:blocks] = num_to_G(hash[:blocks])
     [term[0], hash]
@@ -179,14 +125,42 @@ class DiskMounter
     exit 1
   end
 
+  def mount
+    return unless @current
+    value = flat(@info)[@current]
+    value[:path] ? umount_act(value[:path]) : mount_act(@current, value)
+  end
+
+  private
+
   M_DIR = '~/mnt'
   USER = `echo $USER`.chomp
   M_OPTION = { iocharset: 'utf8', uid: USER, gid: USER, fmask: '133', \
              dmask: '022' }
-  def mount
-    return unless m
+  def mount_act(key, val)
+    command = 'sudo mount -o ' \
+      + M_OPTION.each.map { |o, v| "#{o}=#{v}" }.join(',') \
+      + " #{key} #{path = getpath(key, val)}"
+    FileUtils.mkdir(path) unless File.exist?(path)
 
-  private
+    puts command
+    system(command)
+  end
+
+  UNMOUNT_FAIL_ERR = "\e\[31m\e\[1mError: Unmount failed\e\[0m\n"
+  def umount_act(path)
+    system("sudo umount #{path}")
+    return(puts(UNMOUNT_FAIL_ERR)) if Dir["#{path}/{*,.*}"].size > 2
+    system("rm -rf #{path}")
+  end
+
+  def getpath(key, val)
+    File.expand_path("#{M_DIR}/#{val[:label] or key.sub(%r{/dev/}, '')}")
+  end
+
+  def flat(info)
+    Hash[info.map { |k, v| v[:start] ? [[k, v]] : v.to_a }.flatten(1)]
+  end
 
   def pinfo(info = @info)
     judge = ->(k, v) { v[:start] ? getline(k, v) : psubinfo(v) }
@@ -204,39 +178,16 @@ class DiskMounter
     "\t\e\[36m#{val[:path]}\e\[0m" + \
     "\e\[35m\t#{val[:system] and "[#{val[:system]}]"}\e\[0m"
   end
-    
+
   def ignore(key, val)
     @ignore[:system].include?(val[:system]) or
       @ignore[:path].include?(val[:path])
   end
 end
 
-NO_FTYPE_ERR = "\e\[33mThere is a disk with unknown file type:\e\[0m\n  "
-UNMOUNT_FAIL_ERR = "\e\[31m\e\[1mError: Unmount failed\e\[0m\n"
-
-#FS_CLASS = ['HPFS/NTFS/exFAT', 'Linux', 'Linux LVM', "W95 Ext'd (LBA)", 'W95 FAT32 (LBA)']
-#FS_IGNORE = ['Linux LVM', "W95 Ext'd (LBA)"]
 IGNORE = { system: ['Linux LVM', "W95 Ext'd (LBA)"], path: ['/home', '/boot'] }
-
-#on_disk = Hash[`df`.each_line.map { |l| [l.split[0], l.split[-1]] }]
-
-#deal_label = ->(l) { [linkpt(l), base(l)] if File.symlink?(l) }
-#labels = Hash[Dir["#{LABEL_PATH}/*"].map { |x| deal_label.call(x) }.compact]
 
 info = DiskInfo.new(`sudo fdisk -l`.each_line.to_a)
 mounter = DiskMounter.new(info.disk, IGNORE)
 mounter.ask
-#p info
-#disks_par = `sudo fdisk -l`.each_line.select { |l| l =~ /^\/dev/ }
-#  .map! { |l| deal_fdisk(l.chomp, on_disk, labels) }.each { |x| p x }
-#  .select { |x| !FS_IGNORE.include?(x[2]) }
-#  .select { |x| !DIR_IGNORE.include?(x[1]) }
-
-#disk = d_ask(disks_par)
-
-#exit_with(QUIT_HINT) if disk == :quit
-#
-#mdir = File.expand_path(M_DIR)
-#mpath = File.expand_path("#{mdir}/#{disk[3] || base(disk[0])}")
-#FileUtils.mkdir(mdir) unless File.exist?(mdir)
-#disk[1] ? unmount(disk[1]) : mount(disk[0], mpath)
+mounter.mount
