@@ -10,23 +10,12 @@ def exit_with(str)
   exit
 end
 
-def base(file)
-  file.gsub(%r(^.+/([^/]+)$), '\1')
-end
-
-def parent(file)
-  file.gsub(%r((^.+)/[^/]+$), '\1')
-end
-
-def linkpt(lnfile)
-  File.expand_path("#{parent(lnfile)}/#{File.readlink(lnfile)}")
-end
-
 def unescape(src)
   String.class_eval(%Q("#{src}"))
 end
 
 def deal_fdisk(line, on_disk, labels)
+  p line, on_disk, labels
   ftype = FS_CLASS.map { |term| break term if line.end_with?(term) }
   exit_with(NO_FTYPE_ERR + line) if ftype.is_a?(Array)
   dev = line.split(' ')[0]
@@ -73,37 +62,181 @@ def unmount(path)
   system("rm -rf #{path}")
 end
 
+class DiskLabel
+  
+  LABEL_PATH = '/dev/disk/by-label/'
+
+  def initialize
+    deallab = ->(l) { [linkpt(l).to_sym, base(l)] if File.symlink?(l) }
+    @label = Hash[Dir["#{LABEL_PATH}/*"].map { |x| deallab.call(x) }.compact]
+  end
+
+  def lab(disk)
+    @label[disk.to_sym]
+  end
+
+  private
+
+  def base(file)
+    file.gsub(%r(^.+/([^/]+)$), '\1')
+  end
+
+  def parent(file)
+    file.gsub(%r((^.+)/[^/]+$), '\1')
+  end
+
+  def linkpt(lnfile)
+    File.expand_path("#{parent(lnfile)}/#{File.readlink(lnfile)}")
+  end
+end
+
+class DiskMP
+  def initialize
+    @mount_point = Hash[`df`.each_line.to_a[1..-1].map { |l| deallinedf(l) }]
+  end
+
+  def deallinedf(line)
+    term = line.split(' ')
+    [term[0].to_sym, term[-1]]
+  end
+
+  def path(disk)
+    @mount_point[disk.to_sym]
+  end
+end
+
+class DiskInfo
+  attr_reader :disk
+
+  def initialize(str)
+    @str, @mp, @label = str, DiskMP.new, DiskLabel.new
+    disk = @str.map { |l| %r{^Disk (?<dev>/dev/hd\w|/dev/sd\w)} =~ l and dev }
+    .compact
+    @disk = Hash[disk.map { |k| [k, subdisk(k)]}]
+  end
+
+  private
+
+  def subdisk(dk)
+    hash = Hash[@str.map { |l| /^#{dk}/ =~ l and readsubinfo(l) }.compact]
+    hash.empty? ? readwholeinfo(dk) : hash
+  end
+
+  COLS = [:device, :boot, :start, :end, :blocks, :id, :system, :path, :label]
+  COLNUM = COLS.size - 1
+  def readwholeinfo(dk)
+    ind = @str.find_index { |l| /#{dk}/ =~ l }
+    %r{^Disk /dev/\w+[^\d]+[0-9.]+ \w+[^\d]+\d+[^\d]+(?<sec>\d+)} =~ @str[ind]
+    /^Disklabel type: (?<sys>.+)$/ =~ @str[ind + 4]
+    values = [nil, 0, sec, sec, nil, sys, @mp.path(dk), @label.lab(dk)]
+    hash = Hash[COLS[1..COLNUM].zip(values)]
+    hash[:blocks] = num_to_G(hash[:blocks])
+    hash
+  end
+
+  def readsubinfo(line)
+    term = line.split(' ')
+    term.insert(1, nil) unless term[1] == '*'
+    term[COLNUM - 2] = term[COLNUM - 2..-1].join(' ')
+    term[COLNUM - 1], term[COLNUM] = @mp.path(term[0]), @label.lab(term[0])
+    
+    hash = Hash[COLS[1..COLNUM].zip(term[1..COLNUM])]
+    hash[:blocks] = num_to_G(hash[:blocks])
+    [term[0], hash]
+  end
+
+  def num_to_G(num)
+    num.is_a?(String) ? num.to_f / (1024 * 1024 * 2) : num
+  end
+end
+
+class DiskMounter
+  def initialize(info, ignore)
+    @info, @ignore = info, ignore
+  end
+
+  ASK_WITCH = "\e\[33mWhich disk do you want to mount (umount)?\e\[0m\n"
+  HINT = "\e\[33m\e\[1mPlease input a number.\e\[0m\n"
+  QUIT_HINT = "\e\[33m\e\[1mStop mounting (unmounting)...\e\[0m\n"
+
+  def ask
+    @keylist = [:empty]
+    infostr = pinfo
+    stat = loop do
+      puts ASK_WITCH + infostr
+
+      ch = $stdin.gets.chomp
+      break :quit if %w(q quit Q Quit).include?(ch)
+
+      ind = ch.to_i
+      break @current = @keylist[ind] if (1..@keylist.size - 1).include?(ind)
+
+      puts HINT
+    end
+
+    return unless stat == :quit
+    puts QUIT_HINT
+    exit 1
+  end
+
+  M_DIR = '~/mnt'
+  USER = `echo $USER`.chomp
+  M_OPTION = { iocharset: 'utf8', uid: USER, gid: USER, fmask: '133', \
+             dmask: '022' }
+  def mount
+    return unless m
+
+  private
+
+  def pinfo(info = @info)
+    judge = ->(k, v) { v[:start] ? getline(k, v) : psubinfo(v) }
+    info.map { |k, v| "  \e\[37m#{k}\e\[0m\n" + judge.call(k, v) }.join("\n\n")
+  end
+
+  def psubinfo(info)
+    info.map { |k, v| getline(k, v) }.compact.join("\n")
+  end
+
+  def getline(key, val)
+    return if ignore(key, val)
+    ind = (@keylist << key).size - 1
+    "\t\e\[1m#{ind}. #{val[:label] || key}" + \
+    "\t\e\[36m#{val[:path]}\e\[0m" + \
+    "\e\[35m\t#{val[:system] and "[#{val[:system]}]"}\e\[0m"
+  end
+    
+  def ignore(key, val)
+    @ignore[:system].include?(val[:system]) or
+      @ignore[:path].include?(val[:path])
+  end
+end
+
 NO_FTYPE_ERR = "\e\[33mThere is a disk with unknown file type:\e\[0m\n  "
 UNMOUNT_FAIL_ERR = "\e\[31m\e\[1mError: Unmount failed\e\[0m\n"
-ASK_WITCH = "\e\[33mWhich disk do you want to mount (umount)?\e\[0m\n"
-HINT = "\e\[33m\e\[1mPlease input a number.\e\[0m\n"
-QUIT_HINT = "\e\[33m\e\[1mStop mounting (unmounting)...\e\[0m\n"
 
-LABEL_PATH = '/dev/disk/by-label/'
-M_DIR = '~/mnt'
+#FS_CLASS = ['HPFS/NTFS/exFAT', 'Linux', 'Linux LVM', "W95 Ext'd (LBA)", 'W95 FAT32 (LBA)']
+#FS_IGNORE = ['Linux LVM', "W95 Ext'd (LBA)"]
+IGNORE = { system: ['Linux LVM', "W95 Ext'd (LBA)"], path: ['/home', '/boot'] }
 
-USER = `echo $USER`.chomp
-M_OPTION = { iocharset: 'utf8', uid: USER, gid: USER, fmask: '133', \
-             dmask: '022' }
+#on_disk = Hash[`df`.each_line.map { |l| [l.split[0], l.split[-1]] }]
 
-FS_CLASS = ['HPFS/NTFS/exFAT', 'Linux', 'Linux LVM', "W95 Ext'd (LBA)", 'W95 FAT32 (LBA)']
-FS_IGNORE = ['Linux LVM', "W95 Ext'd (LBA)"]
-DIR_IGNORE = ['/home', '/boot']
+#deal_label = ->(l) { [linkpt(l), base(l)] if File.symlink?(l) }
+#labels = Hash[Dir["#{LABEL_PATH}/*"].map { |x| deal_label.call(x) }.compact]
 
-on_disk = Hash[`df`.each_line.map { |l| [l.split[0], l.split[-1]] }]
+info = DiskInfo.new(`sudo fdisk -l`.each_line.to_a)
+mounter = DiskMounter.new(info.disk, IGNORE)
+mounter.ask
+#p info
+#disks_par = `sudo fdisk -l`.each_line.select { |l| l =~ /^\/dev/ }
+#  .map! { |l| deal_fdisk(l.chomp, on_disk, labels) }.each { |x| p x }
+#  .select { |x| !FS_IGNORE.include?(x[2]) }
+#  .select { |x| !DIR_IGNORE.include?(x[1]) }
 
-deal_label = ->(l) { [linkpt(l), base(l)] if File.symlink?(l) }
-labels = Hash[Dir["#{LABEL_PATH}/*"].map { |x| deal_label.call(x) }.compact]
+#disk = d_ask(disks_par)
 
-disks = `sudo fdisk -l`.each_line.select { |l| l =~ /^\/dev/ }
-  .map! { |l| deal_fdisk(l.chomp, on_disk, labels) }
-  .select { |x| !FS_IGNORE.include?(x[2]) }
-  .select { |x| !DIR_IGNORE.include?(x[1]) }
-disk = d_ask(disks)
-
-exit_with(QUIT_HINT) if disk == :quit
-
-mdir = File.expand_path(M_DIR)
-mpath = File.expand_path("#{mdir}/#{disk[3] || base(disk[0])}")
-FileUtils.mkdir(mdir) unless File.exist?(mdir)
-disk[1] ? unmount(disk[1]) : mount(disk[0], mpath)
+#exit_with(QUIT_HINT) if disk == :quit
+#
+#mdir = File.expand_path(M_DIR)
+#mpath = File.expand_path("#{mdir}/#{disk[3] || base(disk[0])}")
+#FileUtils.mkdir(mdir) unless File.exist?(mdir)
+#disk[1] ? unmount(disk[1]) : mount(disk[0], mpath)
