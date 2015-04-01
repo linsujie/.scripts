@@ -92,7 +92,7 @@ class DiskInfo
   end
 
   def num_to_G(num)
-    num.is_a?(String) ? num.to_f / (1024 * 1024 * 2) : num
+    num.is_a?(String) ? num.to_f / (1000 * 1000) : num
   end
 end
 
@@ -175,6 +175,7 @@ class DiskMounter
     return if ignore(key, val)
     ind = (@keylist << key).size - 1
     "\t\e\[1m#{ind}. #{val[:label] || key}" + \
+    "\t\e\[37m#{format("%.3g G", val[:blocks])}" + \
     "\t\e\[36m#{val[:path]}\e\[0m" + \
     "\e\[35m\t#{val[:system] and "[#{val[:system]}]"}\e\[0m"
   end
