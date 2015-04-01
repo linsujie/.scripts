@@ -27,10 +27,15 @@ class Contour
     defaultfile = %w(tmptable.dat conttmptable.dat)
     @fname, @contfname = @array ? defaultfile : [fname, "cont_#{fname}"]
 
-    @array ||= readdata(@fname).map { |x| x.empty? ? [nil] * 3 : x }
-    .transpose
+    @contarray =
+      if cont_val
+        @array ||= readdata(@fname).map { |x| x.empty? ? [nil] * 3 : x }
+        .transpose
 
-    @contarray = cont_val ? gen_contour(cont_val, @array) : @array
+        gen_contour(cont_val, @array)
+      else
+        @array || readcontour(@fname)
+      end
   end
 
   def gen_contour(cont_val, arr)
@@ -44,7 +49,11 @@ class Contour
           plot.data = [ Gnuplot::DataSet.new(arr) { |ds| ds.with = "lines" }]
         end
     end
-    readdata(@contfname).reduce({}) { |a, e| insertterm(a, e) }
+    readcontour(@contfname)
+  end
+
+  def readcontour(contname)
+    readdata(contname).reduce({}) { |a, e| insertterm(a, e) }
   end
 
   def insertterm(array, term)
