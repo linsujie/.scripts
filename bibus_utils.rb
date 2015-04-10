@@ -447,7 +447,7 @@ class Bibus < BibusKey
   end
 
   def jointerm(term, mlen)
-    term[0].to_s + ' ' * (mlen - term[0].size) + ' = "' + term[1] + '",'
+    term[0].to_s + ' ' * (mlen - term[0].size) + ' = {' + term[1] + '},'
   end
 
   def writelogfile(filename, item)
