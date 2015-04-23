@@ -238,7 +238,7 @@ class MCRun < MCRunIni
     @cur_task[head] && @cur_task[head][@option[:tail]]
   end
 
-  def run_cosray(h, i, sec = 3)
+  def run_cosray(h, i, sec = 1)
     str = "./cosraymc#{h} inifile/galp#{h}.ini #{i} > nohup#{h}_#{i}.out & "
     system(str + "echo $! > ~/.mcrunpid")
     pid = File.new(File.expand_path('~/.mcrunpid')).read.chomp
