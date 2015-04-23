@@ -2,7 +2,7 @@
 require 'pathname'
 
 def gvopen(path)
-  path = Pathname.new(path).realpath
+  path = Pathname.new(path).expand_path
   reg = Regexp.new(path.basename.to_s)
 
   path.dirname.each_child.select { |x| reg =~ x.to_s }

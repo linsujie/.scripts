@@ -6,8 +6,7 @@ require 'gnuplot'
 # Some util methods for gnuplot
 module PlotUtils
   def readdata(fname)
-    File.new(File.expand_path(fname)).each.select { |l| /^#/ !~ l }
-    .map { |l| l.split(' ').map { |x| x.to_f } }
+    inputfile(fname).map { |l| l.split(' ').map { |x| x.to_f } }
   end
 
   def get_ds(array, ls)
@@ -19,12 +18,15 @@ module PlotUtils
   end
 
   def readexpdata(fname)
-    File.new(File.expand_path(fname)).each.reject { |l| /(^#\s*$|^\s*$)/ =~ l }
-    .unshift("\n").join('').split("\n#")[1..-1]
-    .reduce({}) { |a, e| a.store(*group2pair(e)) and a }
+    inputfile(fname, /(^#\s*$|^\s*$)/).unshift("\n").join('')
+    .split("\n#")[1..-1].reduce({}) { |a, e| a.store(*group2pair(e)) and a }
   end
 
   private
+
+  def inputfile(fname, reject_reg = /^#/)
+    File.new(File.expand_path(fname)).each.reject { |l| reject_reg =~ l }
+  end
 
   def group2pair(gstr)
     garr = gstr.split("\n")

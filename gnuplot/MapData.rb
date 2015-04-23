@@ -42,6 +42,11 @@ class MapData
     getcols
   end
 
+  def rescale(label = [:x, :y], factor = [1, 1])
+    [*label].zip([*factor]).each { |l, f| rescale_axis(l, f) }
+    getcols
+  end
+
   def plot_contour(fname)
     Gnuplot.open do |gp|
       Gnuplot::SPlot.new(gp) do |plot|
@@ -84,7 +89,15 @@ class MapData
   INARRWARN = INWARN + 'array'
   INCOLWARN = INWARN + 'cols'
 
+  def rescale_axis(label = :x, factor = 1)
+    case label
+    when :x then @xaxis.map! { |x| x * factor }
+    when :y then @yaxis.map! { |y| y * factor }
+    end
+  end
+
   def formatline(vector)
+    return if vector == [nil, nil, nil]
     vector.map { |x| format("%.5e", x) }.join(' ')
   end
 
