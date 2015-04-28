@@ -4,9 +4,35 @@
 
 require '~/ruby_cpp/Chisq/Chisq'
 require '~/.scripts/stringtof.rb'
+require 'escort'
+require 'rainbow/ext/string'
 
-x, num = ARGV[0].dup.e_to_f, ARGV[1].dup.e_to_f.to_i
+class CalAlpha < ::Escort::ActionCommand::Base
+  def execute
+    opt = command_options
+    if opt[:alpha] == 0.0
+      opt[:alpha] = Chisq::alpha(opt[:chi2], opt[:dof])
+    else
+      opt[:chi2] = Chisq::chi2(opt[:alpha], opt[:dof])
+    end
 
-p x, num
-puts ARGV[2] == 'r' ? Chisq::chi2(alpha = x, num) : alpha = Chisq::alpha(x, num)
-puts "#{format("%.3g", Chisq::getnsig(alpha))} sigma"
+    result = ['d.o.f', 'chi square', 'alpha', 'sigma']
+      .map { |s| format("%-12.12s:", s).bright }
+      .zip([opt[:dof], opt[:chi2], opt[:alpha], Chisq::getnsig(opt[:alpha])])
+      .map { |l| l.join(' ') }.join("\n")
+
+    Escort::Logger.output.puts result
+  end
+end
+
+Escort::App.create do |app|
+  app.options do |opts|
+    opts.opt :alpha, '', short: '-a', long: '--alpha', type: :float, default: 0.0
+    opts.opt :dof, 'degree of freedom', short: '-d', long: '--dof', type: :int, default: 1
+    opts.opt :chi2, 'chi square', short: '-c', long: '--chi2', type: :float, default: 0.0
+  end
+
+  app.action do |options, arguments|
+    CalAlpha.new(options, arguments).execute
+  end
+end
