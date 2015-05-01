@@ -2,6 +2,7 @@
 # encoding: utf-8
 
 require 'fileutils'
+require File.expand_path('../Array_ext.rb', __FILE__)
 
 # To splitting the data with different experiment
 class Splitdata
