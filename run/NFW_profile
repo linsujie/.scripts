@@ -1,4 +1,4 @@
-#!/home/linsj/bin/ruby
+#!/afs/cern.ch/user/s/sujie/private/bin/ruby
 # encoding: utf-8
 
 require 'escort'
