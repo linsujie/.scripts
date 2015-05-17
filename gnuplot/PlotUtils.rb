@@ -9,11 +9,11 @@ module PlotUtils
     inputfile(fname).map { |l| l.split(' ').map { |x| x.to_f } }
   end
 
-  def get_ds(array, ls)
+  def get_ds(array, ls, title = '')
     Gnuplot::DataSet.new(array) do |ds|
       ds.with = "lines " \
         + [:lt, :lc, :lw].map { |x| "#{x} #{ls[x]} " if ls[x] }.join(' ')
-      ds.title = ''
+      ds.title = "#{title}"
     end
   end
 
