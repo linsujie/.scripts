@@ -5,7 +5,7 @@ DEPS = { '/home/linsj': { 'MCGAL/galp': %w(galprop skymap),
                                              'CLHEP': %w(CLHEP),
                                              'cfitsio': %w(cfitsio) },
                           nil => %w(lins works) },
-         '/usr': %w(gsl m gfortran),
+         '/usr/local': %w(gsl gslcblas m gfortran),
          '/opt/intel/Compiler/11.1/046/lib/intel64': %w(ifport ifcoremt imf svml ipgo iomp5 irc pthread irc_s dl)
 }
 
