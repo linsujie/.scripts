@@ -7,6 +7,10 @@ class RectangleCounter
     @sizes, @iter = sizes, -1
   end
 
+  def reset(iter = -1)
+    @iter = iter
+  end
+
   def get(iter = nil)
     iter ||= (@iter += 1)
 
@@ -20,10 +24,11 @@ end
 
 # The class to provide a { lt: xx, lc: xx, lw: xx } hash that changes iteratively
 class LineStylePackage
-  attr_reader :packs
+  attr_reader :vechash
   def initialize(lws = nil, lcs = nil, lts = nil)
     @iter = -1
-    @vechash = Hash[tcwlab('wct').zip([lws || LW, lcs || LC, lts || LT])]
+    parr = [lws || LW, (lcs || LC).map { |x| "rgb '##{x}'" }, lts || LT]
+    @vechash = Hash[tcwlab('wct').zip(parr)]
 
     tcw = %w(t c w).permutation.map { |x| x.join }
     @counter = Hash[tcw.map { |x| [x, RectangleCounter.new(tcwsize(x))] }]
@@ -36,13 +41,16 @@ class LineStylePackage
         .zip(@counter[seq].get(iter)).map { |cont, i| [cont[0], cont[1][i]] }
       Hash[result]
     end
+
+    define_method("reset#{seq}") do |iter = -1|
+      @counter[seq].reset(iter)
+    end
   end
 
   private
 
   LW = [3, 6]
   LC = %w(FF0000 0000FF 008800 FF8800 FF00FF 0088FF 888888 000000)
-    .map { |x| "rgb '##{x}'" }
   LT = [1, 2, 4, 5, 7, 8]
 
   def tcwlab(sequence)

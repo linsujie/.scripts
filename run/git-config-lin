@@ -1,4 +1,5 @@
 #!/bin/bash
+git config --global push.default simple
 git config user.name 'linsj'
 git config user.email 'lin.sujie1234@gmail.com'
 git config core.editor vim
