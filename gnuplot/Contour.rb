@@ -5,9 +5,17 @@ require File.expand_path('../PlotUtils.rb', __FILE__)
 require File.expand_path('../../DailyMethod.rb', __FILE__)
 
 # To generate Gnuplot::Daataset for Contour files
+#
 # The input information could be filename or array.
+#
 # If the cont_val is nil, the inputed infomation would be treated as Contour
 # info, or as Table data on the other hand.
+#
+# All the inputed data should be arranged in the three-column format, a 2-d
+# table together with xaxis and yaxis could be transformed to this form with
+# the class MapData
+#
+# inputed ls is a hash in format { lt: [1, 2], lc: [2, 3], lw: [3, 3] }
 class Contour
   include PlotUtils
   attr_reader :ds
@@ -15,8 +23,11 @@ class Contour
   def initialize(fname, ls, cont_val = nil)
     dealinput(fname, cont_val)
 
-    ls = ls.to_a.map { |k, v| v.map { |i| [k, i] } }.transpose.map { |l| Hash[l] }
-    @ds = @contarray.zip(ls).map { |h, l| get_ds(h[1].transpose[0..1], l) }
+    ls = ls.to_a.map { |k, v| v.map { |i| [k, i] } }.transpose
+      .map { |l| Hash[l] }
+
+    @ds = @contarray.zip(ls).map { |h, l| get_ds(h[1].transpose[0..1], l) if l }
+      .compact
   end
 
   private

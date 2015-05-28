@@ -7,6 +7,8 @@ require '~/.scripts/interp.rb'
 class Range
   attr_reader :min, :max, :x
 
+  FILL = 'filledcurves fs transparent solid 0.5 '
+
   def initialize
     @min, @max, @x = nil, nil, nil
   end

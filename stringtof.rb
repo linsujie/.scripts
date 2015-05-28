@@ -1,7 +1,8 @@
 #!/home/linsj/bin/ruby
 # encoding: utf-8
 
-# supply the method e_to_f for String
+# supply the method e_to_f for String, which could deal with simple expressions
+# in String
 class String
   def e_to_f
     return to_f unless /(?<![eE])[+*\/-]/ =~ self

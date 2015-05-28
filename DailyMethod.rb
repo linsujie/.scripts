@@ -14,3 +14,16 @@ module DailyMethod
     arr[-1].size == ncol ? arr.transpose : nil
   end
 end
+
+class Array
+  SPLITOR_MAP = ["\t", "\n", "\n\n", '']
+
+  def to_page(ind = level_number - 1)
+    self.map { |x| x.is_a?(Array) ? x.to_page(ind - 1) : x }
+    .join(SPLITOR_MAP[ind])
+  end
+
+  def level_number
+    self.map { |x| x.is_a?(Array) ? x.level_number + 1 : 1 }.max || 0
+  end
+end
