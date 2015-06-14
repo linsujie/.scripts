@@ -1,4 +1,4 @@
-#!/bin/ruby
+#!/usr/bin/env ruby
 # encoding: utf-8
 
 BIBUTILS = File.expand_path('../../bibus_utils.rb', __FILE__)
@@ -23,6 +23,6 @@ use_default_colors
 colorinit
 
 cmd = CmdBib.new(lines, cols, bib)
-info = cmd.deal
+cmd.deal
 
 close_screen

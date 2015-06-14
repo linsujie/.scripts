@@ -4,7 +4,7 @@
 require File.expand_path('../PlotUtils.rb', __FILE__)
 require File.expand_path('../../DailyMethod.rb', __FILE__)
 
-# To generate Gnuplot::Daataset for Contour files
+# To generate Gnuplot::DataSet for Contour files
 #
 # The input information could be filename or array.
 #
@@ -26,8 +26,8 @@ class Contour
     ls = ls.to_a.map { |k, v| v.map { |i| [k, i] } }.transpose
       .map { |l| Hash[l] }
 
-    @ds = @contarray.zip(ls).map { |h, l| get_ds(h[1].transpose[0..1], l) if l }
-      .compact
+    @ds = @contarray.to_a.zip(ls)
+      .map { |h, l| get_ds(h[1].transpose[0..1], l) if l }.compact
   end
 
   private

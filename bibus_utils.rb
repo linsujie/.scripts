@@ -1,4 +1,4 @@
-#!/usr/bin/ruby -w
+#!/usr/bin/env ruby -w
 # encoding: utf-8
 
 require 'sqlite3'

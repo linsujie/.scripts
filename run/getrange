@@ -1,0 +1,32 @@
+#!/bin/env ruby
+# encoding : utf-8
+
+require 'escort'
+require '~/.scripts/DailyMethod.rb'
+
+class GetRange < ::Escort::ActionCommand::Base
+  include DailyMethod
+  def execute
+    chains, paras, range = %w(.txt .paramNames .ranges)
+      .map { |x| command_options[:file_root] + x }
+
+    paras = File.new(paras).each.map { |l| l.split(' ')[0] }.compact
+
+    chainsarr = readfile(chains, paras.size + 2) or
+      raise "The params number in paramNames is wrong"
+
+    maxval, minval = chainsarr[2..-1].map(&:max), chainsarr[2..-1].map(&:min)
+    File.new(range, 'w').puts paras.zip(minval, maxval).to_page
+  end
+end
+
+Escort::App.create do |app|
+  app.options do |opts|
+    opts.opt :file_root, 'The file root of the chain',
+      short: '-f', long: '--fileroot', type: :string, default: 'chains/test'
+  end
+
+  app.action do |options, arguments|
+    GetRange.new(options, arguments).execute
+  end
+end
