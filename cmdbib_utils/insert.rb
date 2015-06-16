@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 # encoding: utf-8
 
-require File.expand_path('../menu.rb', __FILE__)
+require_relative 'menu.rb'
 
 require 'curses'
 include Curses
@@ -92,22 +92,11 @@ class TxtFile
 end
 
 # The basic methods for insert mode
-class InsmodeBase
+module InsmodeBase
   attr_reader :file
   attr_writer :complist
 
   public
-
-  def initialize(string, position, winsize, mode, frame)
-    @file, @mode, @winsize = TxtFile.new(string, winsize[1] - 1), mode, winsize
-    @lsft, @csft = [*position] << 0
-
-    @window = Framewin.new(@winsize[0], @winsize[1], @lsft, @csft, frame)
-    @window.cont.keypad(true)
-
-    @quitkey, @chgst, @complist = 10, 9, false
-    @chgline = mode == :ml ? 10 : -1
-  end
 
   def reset(string = '')
     @file = TxtFile.new(string, @winsize[1] - 1)
@@ -165,11 +154,20 @@ class InsmodeBase
 end
 
 # The insert mode
-class Insmode < InsmodeBase
+class Insmode
+  include InsmodeBase
+
   public
 
   def initialize(string, position, winsize, mode = :ml, frame = false)
-    super(string, position, winsize, mode, frame)
+    @file, @mode, @winsize = TxtFile.new(string, winsize[1] - 1), mode, winsize
+    @lsft, @csft = [*position] << 0
+
+    @window = Framewin.new(@winsize[0], @winsize[1], @lsft, @csft, frame)
+    @window.cont.keypad(true)
+
+    @quitkey, @chgst, @complist = 10, 9, false
+    @chgline = mode == :ml ? 10 : -1
   end
 
   def deal

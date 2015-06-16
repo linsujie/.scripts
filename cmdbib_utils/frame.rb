@@ -53,5 +53,3 @@ class Framewin
     @cont.inch
   end
 end
-
-

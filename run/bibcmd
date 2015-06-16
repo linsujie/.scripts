@@ -6,14 +6,16 @@ CMDUTILS = File.expand_path('../../cmdbib_utils/cmdbib_utils.rb', __FILE__)
 USER_NAME = 'linsj'
 DATA_FILE = '~/.bibus/Daily.db'
 REF_DIR = '~/Documents/Reference'
+ANCESTOR = 3
 
 require BIBUTILS
 require CMDUTILS
 require 'curses'
 include Curses
 
-bib = Bibus.new(USER_NAME, DATA_FILE, REF_DIR)
+bib = Bibus.new(USER_NAME, DATA_FILE, REF_DIR, ANCESTOR)
 
+begin
 init_screen
 cbreak
 noecho
@@ -25,4 +27,6 @@ colorinit
 cmd = CmdBib.new(lines, cols, bib)
 cmd.deal
 
+ensure
 close_screen
+end

@@ -1,7 +1,8 @@
 #!/usr/bin/env ruby
 # encoding: utf-8
 
-# The pointer about where should the item print, and which is the current item
+# The pointer about where should the note item print, and which is the current
+# item
 class Pointer
   attr_reader :segment, :location, :len, :pst, :state
 
@@ -10,7 +11,8 @@ class Pointer
   def initialize(array, segsize, pst, state)
     warn = ->() { puts 'Warning:: There is an item too long' }
     warn.call if !array.empty? && segsize < array.max
-    @segsize, @len, @pst, @state = segsize, array, pst, state
+    @segsize, @len, @state = segsize, array, state
+    @pst = pst >= array.size - 1 ? array.size - 1 : pst
     @seg, @cur, @segment, @location = 0, 0, [0], [0]
     array.each { |num| addnum(num) }
   end
@@ -55,5 +57,3 @@ class Pointer
     [@seg + 1, num]
   end
 end
-
-

@@ -1,8 +1,9 @@
-#!/usr/bin/env ruby -w
+#!/usr/bin/env ruby
 # encoding: utf-8
 
 require 'sqlite3'
 require 'fileutils'
+require_relative 'foldlist.rb'
 
 # This class is some utils to database of bibus
 class DbUtils < SQLite3::Database
@@ -81,17 +82,10 @@ class DbUtils < SQLite3::Database
 end
 
 # The class with basic utils to deal with database
-class BaseBibUtils
-  attr_reader :showkeylist
+module BaseBibUtils
+  attr_reader :biblist
 
   public
-
-  def initialize(username, datafile)
-    @username = username
-    @db = DbUtils.new(datafile)
-    gen_colist
-    genbibkeylist
-  end
 
   def self.fmtnote(note, mark = '*')
     return '' if note == ''
@@ -99,32 +93,9 @@ class BaseBibUtils
        .gsub("\n\n", "\n\n#{mark}  ")
   end
 
-  # EXC_KLS = %W(All References Tagged Query Online Import Cited Trash) << ''
-  ANCESTOR = 3
-
-  def genbibkeylist
-    list = @db.select(:bibrefkey, %w(key_id parent key_name), :user, @username)
-      .map { |id, parent, name| [name.to_sym, [parent, id]] }
-      .sort_by { |x| x[0] }
-      # .select { |t| !EXC_KLS.include?(t[2]) }
-
-    @bibkeylist = Hash[list]
-
-    list = list.map { |k, v| [k.to_s, v[0], v[1]] }
-    pri = list.select { |x| x[1] == ANCESTOR } + list.select { |x| x[2] == ANCESTOR }
-    primary = pri.map { |x| [x[0], x[2]] }.transpose
-    @showkeylist = showlist(primary, list - pri)
-  end
-
-  def showlist(res, ori, gen = 1)
-    son = ori.select { |x| res[1].include?(x[1]) }
-    son.each { |x| respective_add(res, res[1].index(x[1]) + 1, x, gen) }
-    son.empty? ? res : showlist(res, ori - son, gen + 1)
-  end
-
-  def respective_add(res, ind, item, gen)
-    res[0].insert(ind, '  ' * gen + item[0])
-    res[1].insert(ind, item[2])
+  def genbiblist
+    l = @db.select(:bibrefkey, %w(key_id parent key_name), :user, @username)
+    @biblist = FoldList.new(l, @ancestor)
   end
 
   def keys(bibid)
@@ -189,40 +160,32 @@ end
 
 # This class provide methods to deal with keys
 # it
-class BibusKey < BaseBibUtils
+module BibusKey
   public
 
-  def dekey(keyname)
-    pid, keyid = [*@bibkeylist[keyname.to_sym]] || return
-    @db.delete(:bibreflink, :key_id, keyid)
-    @db.delete(:bibrefkey, :key_id, keyid)
-    adopt(sons(keyid), pid)
+  def dekey(kinfo)
+    item = @biblist.tree.find(kinfo.is_a?(Integer) ? :id : :keyname, kinfo)
+
+    @db.delete(:bibreflink, :key_id, item.id)
+    @db.delete(:bibrefkey, :key_id, item.id)
+    adopt(item.children.map(&:id), item.parent)
   end
 
   def modkey(keyid, keyname)
     @db.update(:bibrefkey, { key_name: keyname }, key_id: keyid)
-    genbibkeylist
+    genbiblist
   end
 
   def sons(keyid)
     @bibkeylist.each.select { |k, v| v[0] == keyid }.map! { |x| x[1][1] }
   end
 
-  def offsprings(keyid)
-    keyid = [*keyid].map! { |x| x.to_i }
-    ofs = keyid.reduce([*keyid]) { |a, e| a << sons(e) }.flatten
-    (ofs - keyid).empty? ? ofs : offsprings(ofs)
-  end
-
   def adopt(son, parent)
-    parent = [*@bibkeylist[parent.to_sym]][1] || 3 unless parent.is_a?(Integer)
-    [*son].each { |x| @db.update(:bibrefkey, { parent: parent }, key_id: x) }
-    genbibkeylist
-  end
-
-  def branch(key, res = [])
-    (parent, _) = @db.select(:bibrefkey, :parent, :key_id, key).flatten
-    parent == ANCESTOR ? (res << key)[1..-1] : branch(parent, res << key)
+    item_p = @biblist.tree.find(parent.is_a?(Integer) ? :id : :keyname, parent)
+    parent = item_p ? item_p.id : @ancestor
+    [*son].select { |x| x.to_i != parent.to_i }
+      .each { |x| @db.update(:bibrefkey, { parent: parent }, key_id: x) }
+    genbiblist
   end
 
   def addkey(keyname, parent)
@@ -231,7 +194,7 @@ class BibusKey < BaseBibUtils
 
     @db.insert(:bibrefkey, [:user, :key_id, :parent, :key_name],
                [@username, newid, parent, keyname])
-    genbibkeylist
+    genbiblist
   end
 end
 
@@ -349,17 +312,22 @@ module Author
 end
 
 # This class provide all the methods needed
-class Bibus < BibusKey
-  attr_reader :db, :username
+class Bibus
+  attr_reader :db, :username, :ancestor
+  include BaseBibUtils
+  include BibusKey
   include BibReader
 
   public
 
   INSIDE_COL = [:note]
 
-  def initialize(username, datafile, refdir = '~/Documents/Reference')
-    @refdir = File.expand_path(refdir)
-    super(username, File.expand_path(datafile))
+  def initialize(username, datafile, refdir = '~/Documents/Reference', ancest)
+    @refdir, @username, @ancestor = File.expand_path(refdir), username, ancest
+
+    @db = DbUtils.new(File.expand_path(datafile))
+    gen_colist
+    genbiblist
   end
 
   def search(words)
@@ -380,7 +348,7 @@ class Bibus < BibusKey
     @db.insert(:bibref, keylist, valist)
     @db.insert(:file, %w(ref_id path), [id, path])
 
-    link_item(@bibkeylist[:newtmp][1], id)
+    link_item(@biblist.find(:keyname, 'newtmp').id, id)
 
     addfile(filename, path)
   end
@@ -409,7 +377,7 @@ class Bibus < BibusKey
   end
 
   def opbib(ident)
-    system(%Q((gvfs-open "#{@refdir}/#{ident}.pdf" &)))
+    system("(gvfs-open #{@refdir}/#{ident}.pdf &)")
     writelogfile(File.expand_path('~/.opbib_history'), ident)
   end
 
@@ -447,7 +415,7 @@ class Bibus < BibusKey
   end
 
   def jointerm(term, mlen)
-    term[0].to_s + ' ' * (mlen - term[0].size) + ' = {' + term[1] + '},'
+    term[0].to_s + ' ' * (mlen - term[0].size) + ' = "' + term[1] + '",'
   end
 
   def writelogfile(filename, item)

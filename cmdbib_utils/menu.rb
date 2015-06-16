@@ -1,7 +1,8 @@
 #!/usr/bin/env ruby
 # encoding: utf-8
 
-require File.expand_path('../frame.rb', __FILE__)
+require_relative 'frame.rb'
+require_relative '../foldlist.rb'
 
 # The basic utils for menu
 module MenuUtils
@@ -16,16 +17,15 @@ module MenuUtils
   def set(curse, scurse, list = @list)
     @list = list[0].is_a?(Array) ? list : [list]
     @curse, @scurse = curse, scurse
-    @contlen = @list[0].size < @maxlen ? @list[0].size : @maxlen
-    @win.each { |win| win.cont.clear }
+
     mrefresh
   end
 
-  def setcol(visible, mainm = @mainm)
-    @visible, @mainm = visible, mainm
+  def setcol(visible, mainm = @opts[:mainmenu])
+    @visible, @opts[:mainmenu] = visible, mainm
   end
 
-  def current(col = @mainm)
+  def current(col = @opts[:mainmenu])
     @list[col] ? @list[col][@curse % listsize].to_s : nil
   end
 
@@ -55,7 +55,7 @@ module MenuUtils
     x > 0 ? x : 0
   end
 
-  def fillstr(str, col = @mainm)
+  def fillstr(str, col = @opts[:mainmenu])
     str + ' ' * theta(@width[col] - str.size)
   end
 
@@ -71,21 +71,18 @@ module MenuUtils
   end
 
   def cursedown
+    return (@curse, @scurse = 0, 0) if @curse == @list[0].size - 1
+
     @curse += 1
     @scurse += 1 if @scurse == @curse - @maxlen
   end
 
   def curseup
+    lsize = @list[0].size
+    return (@curse, @scurse = lsize - 1, lsize - @contlen) if @curse == 0
+
     @curse -= 1
     @scurse -= 1 if @scurse == @curse + 1
-  end
-
-  def jumphead
-    (@curse, @scurse) = [0, 0]
-  end
-
-  def jumptail
-    (@curse, @scurse) = [@list[0].size - 1, @list[0].size - @contlen]
   end
 end
 
@@ -96,15 +93,27 @@ class Menu
 
   public
 
-  def initialize(list, posi, length = [20, false], width = nil, mainm = 0, frame = false)
-    @list = list[0].is_a?(Array) ? list : [list]
-    ininumbers(posi, length, width, mainm)
+  DEFAULTOPT = { yshift: 0, xshift: [0], length: 20, fixlen: true, width: nil,
+                 mainmenu: 0, frame: %w(| -) }
+  def initialize(list, opts = DEFAULTOPT)
+    @opts, @list = opts, list
+    DEFAULTOPT.each_key { |k| @opts[k] = DEFAULTOPT[k] unless @opts.key?(k) }
 
-    cw = ->(e) { Framewin.new(@maxlen, @width[e], @lsft, @csft[e] + 1, frame) }
-    @win = (0..@csft.size - 1).reduce([]) { |a, e| a << cw.call(e) }
-    @win.each { |win| win.cont.keypad(true) }
+    construct
 
     @qkey, @dkey, @ukey = ['q', ' ', 10], ['j', KEY_DOWN, 9], ['k', KEY_UP]
+  end
+
+  def construct(xshift = 0)
+    @opts[:xshift].map! { |x| x + xshift }
+    ininumbers
+
+    @win = (0..@opts[:xshift].size - 1).reduce([]) do |a, e|
+      a << Framewin.new(@maxlen, @width[e], @opts[:yshift],
+                        @opts[:xshift][e], @opts[:frame])
+    end
+
+    @win.each { |win| win.cont.keypad(true) }
   end
 
   def get
@@ -118,40 +127,38 @@ class Menu
     current
   end
 
-  def mrefresh
+  def mrefresh(xshift = 0)
+    construct(xshift)
     @visible
       .each_with_index { |bool, ind| colrefresh(ind) if bool && @list[ind] }
-    @win[@mainm].cont
+    @win[@opts[:mainmenu]].cont
   end
 
   def to_a
-    @list[@mainm]
+    @list[@opts[:mainmenu]]
   end
 
   private
 
-  def ininumbers(posi, length, width, mainm)
-    @lsft, @csft = posi.is_a?(Fixnum) ? [posi, [0]] : [posi[0], posi[1..-1]]
-    @csft.map { |x| x + 1 }
-    (mlen, fix) = [*length] << false
+  def ininumbers
+    @contlen = [@list[0].size, @opts[:length]].min
+    @maxlen = @opts[:fixlen] ? @opts[:length] : @contlen
 
-    @contlen = @list[0].size < mlen ? @list[0].size : mlen
-    @maxlen = fix ? mlen : @contlen
+    @curse ||= 0
+    @scurse ||= 0
+    @visible ||= @opts[:xshift].map { true }
 
-    @curse, @scurse, @mainm, @visible = 0, 0, mainm, @csft.map { true }
-
-    lastw = width || @list[0].map { |x| x.size }.max + 1
-    @width = @csft.each_cons(2).map { |pvs, nxt| nxt - pvs - 1 } << lastw
+    lastw = @opts[:width] || @list[0].map(&:size).max + 3
+    @width = @opts[:xshift].each_cons(2)
+      .map { |pvs, nxt| nxt - pvs - 1 } << lastw
   end
 
   def deal(char)
     return if @list[0].empty?
 
-    eolist = @curse == @list[0].size - 1
-
     case true
-    when @dkey.include?(char) then eolist ? jumphead : cursedown
-    when @ukey.include?(char) then @curse == 0 ? jumptail : curseup
+    when @dkey.include?(char) then cursedown
+    when @ukey.include?(char) then curseup
     end
   end
 end
@@ -161,15 +168,62 @@ class AdvMenu < Menu
   attr_reader :char
   attr_accessor :curse, :scurse
 
-  def get(ind = @mainm)
+  def get(ind = @opts[:mainmenu])
     curs_set(0)
 
     loop do
       @char = mrefresh.getch
       deal(@char)
-      yield(self, @char) if block_given? && @char.is_a?(String)
+      yield(self, @char.to_s) if block_given?
       break if @qkey.include?(@char)
     end
     current(ind)
+  end
+end
+
+class FoldMenu < AdvMenu
+  attr_reader :fdlist
+  public
+
+  def initialize(fdlist, opts = DEFAULTOPT)
+    @fdlist = fdlist
+    super(fdlist.to_a, opts)
+  end
+
+  def get(ind = @opts[:mainmenu])
+    curs_set(0)
+
+    @state = :normal
+    loop do
+      @char = mrefresh.getch
+      deal(@char)
+      fold if @char == 'z'
+
+      break if @state == :normal &&  @qkey.include?(@char)
+      @state = yield(@fdlist, @state, @char.to_s.to_sym) if block_given?
+    end
+    current(ind)
+  end
+
+  def set(fdlist = @fdlist)
+    fdlist.tree.copy(@fdlist.tree, :id, :ostate)
+    @fdlist, @list = fdlist, fdlist.to_a
+
+    mrefresh
+  end
+
+  private
+
+  FOLD_FUNC = { m: :fold_m, a: :fold_a, o: :fold_o }
+
+  def fold
+    char = @win[0].cont.getch.to_sym
+    @fdlist.send(FOLD_FUNC[char], current(1).to_i) if FOLD_FUNC[char]
+    @list = @fdlist.to_a
+
+    ininumbers
+    @curse = @curse % @list[0].size
+    @scurse < @curse - @maxlen + 1 and @scurse = @curse - @maxlen + 1
+    @scurse > @curse and @scurse = @curse
   end
 end

@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 # encoding: utf-8
 
-require File.expand_path('../note.rb', __FILE__)
+require_relative 'note.rb'
 
 # The utils for cmdbib, including the logic for all the substantial
 # multipulations
@@ -75,7 +75,7 @@ CmdBibBase = Struct.new(:bib) do
     bibname = diag_with_msg(:file, :bibask)
     return if bibname == ''
 
-    bib.modbib(@list.current, bibname)
+    bib.modbib(@list.current(-1), bibname)
     back_bibfile(bibname)
   end
 
@@ -92,8 +92,8 @@ CmdBibBase = Struct.new(:bib) do
   end
 
   def diag_with_msg(comp_type, msg_type)
-    showmessage(NormodeBase::INDCSTC[msg_type])
-    result = listdiag(comp_type, NormodeBase::INDCSTC[msg_type])
+    showmessage(Message::INDCSTC[msg_type])
+    result = listdiag(comp_type, Message::INDCSTC[msg_type])
     showmessage('')
     result
   end
@@ -104,18 +104,19 @@ CmdBibBase = Struct.new(:bib) do
   end
 
   def tag_current
-    listmenu(tlist) { |k| bib.link_item(k, @list.current) } if asks(:tag)
-  end
+    ltb = bib.keys(@list.current(-1))
+    ltb.each { |k| @menu.fdlist.tag(k)  }
+    @menu.set
 
-  def tlist
-    ltb = bib.keys(@list.current)
-    #showmessage(ltb.to_s).getch
-    lform = ->(x) { ltb.include?(x[1]) ? '* ' + x[0] : '  ' + x[0] }
-    bib.showkeylist.transpose.map! { |x| [lform.call(x), x[1]] }.transpose
+    keyid = @menu.get(1)
+    bib.link_item(keyid, @list.current(-1)) if @menu.char != 'q' && asks(:tag)
+
+    ltb.each { |k| @menu.fdlist.tag(k)  }
+    @menu.set
   end
 
   def delete
-    bib.debib(@list.current, "y\n") if asks(:delete)
+    bib.debib(@list.current(-1), "y\n") if asks(:delete)
   end
 
   def cstat
@@ -125,16 +126,16 @@ CmdBibBase = Struct.new(:bib) do
   end
 
   def noting
-    return if @list.current == ''
+    return if @list.current(-1) == ''
     clear
     ((author, title, notes)) = bib.db
-      .select(:bibref, %w(author title note), :id, @list.current)
+      .select(:bibref, %w(author title note), :id, @list.current(-1))
 
     head = [title, author, @list.current(0)]
     pad = NoteItf.new(notes, head, @scsize, @scsize[1], 1)
 
     pad.deal
-    bib.storenote(@list.current, pad.note.notes)
+    bib.storenote(@list.current(-1), pad.note.notes)
     refreshpanel(false)
   end
 
@@ -157,34 +158,54 @@ CmdBibBase = Struct.new(:bib) do
     block_given? ? yed.call(@diag.file.string) : @diag.file.string
   end
 
-  def listmenu(list, ctrl = false, curses = [0, 0], v_order = 1)
-    menu = @menu.clone
-    menu.set(curses[0], curses[1], list)
-    choice = menu.get(v_order)  { |menu, char| keycontrol(menu, char) if ctrl }
-    return if menu.char == 'q'
+  KEY_STATE_MAP = { normal: { l: :link },
+                    link: { q: :normal, '10': :normal } }
 
-    yield(choice)
+  def chstate(fdlist, lastid, state, newstate)
+    if state == :normal && newstate == :link
+      @lastnode = fdlist.tree.find(:id, lastid)
+      @lastnodestate, @lastnode.ostate = @lastnode.ostate, nil
+      showmessage(Message::INDCSTC[:pkey])
+    elsif state == :link && newstate == :normal
+      @lastnode.ostate = @lastnodestate
+      showmessage('')
+    end
+    @menu.set
   end
 
   def listkeys
-    listmenu(bib.showkeylist, true) { |key| @list.set(0, 0, keyidents(key)) }
+    lastid = 0
+    key = @menu.get(1) do |fdlist, state, char|
+      keycontrol(state, char, [@menu.current(1).to_i, lastid])
+      showc
+
+      newstate = KEY_STATE_MAP[state][char] || state
+
+      if newstate != state
+        lastid = @menu.current(1).to_i
+        chstate(fdlist, lastid, state, newstate)
+      end
+
+      state = newstate
+    end
+
+    @list.set(0, 0, keyidents(key)) if @menu.char != 'q'
   end
 
   def searchdiag
     listdiag { |word| @list.set(0, 0, search(word)) }
   end
-
 end
 
 # Mapping the functions to keyboard
 module CmdBibControl
   def open
-    @list.current != '' && bib.opbib(@list.current(0))
+    @list.current(-1) != '' && bib.opbib(@list.current(0))
   end
 
   def print_cur_item
     ask_outfile unless @outfile
-    bib.printbibs([@list.current], @outfile)
+    bib.printbibs([@list.current(-1)], @outfile)
   end
 
   def print_all_item
@@ -196,37 +217,27 @@ module CmdBibControl
     listdiag(:file) { |word| set_state(File.expand_path(word)) }
   end
 
-  def addkey(menu)
+  def addkey(ids)
     keyname = diag_with_msg(nil, :newkey)
-    bib.addkey(keyname, menu.current(1)) unless keyname == ''
+    bib.addkey(keyname, ids[0]) unless keyname == ''
   end
 
-  def modkey(menu)
+  def modkey(ids)
     keyname = diag_with_msg(nil, :modkey)
-    bib.modkey(menu.current(1), keyname) unless keyname == ''
+    bib.modkey(ids[0], keyname) unless keyname == ''
   end
 
-  def add_ancestorkey(menu)
+  def add_ancestorkey(ids)
     keyname = diag_with_msg(nil, :newkey)
-    bib.addkey(keyname, Bibus::ANCESTOR) unless keyname == ''
+    bib.addkey(keyname, bib.ancestor) unless keyname == ''
   end
 
-  def delkey(menu)
-    bib.dekey(menu.current(0).strip) if asks(:delete)
+  def delkey(ids)
+    bib.dekey(ids[0]) if asks(:delete)
   end
 
-  def linkey(menu)
-    ofs = bib.offsprings(menu.current(1))
-    nm = menu.list.transpose.reject { |x| ofs.include?(x[1].to_i) }.transpose
-    curses = [menu.curse, menu.scurse]
-
-    showmessage(NormodeBase::INDCSTC[:pkey])
-    listmenu(nm, false, curses) { |pnt| bib.adopt(menu.current(1), pnt.to_i) }
-    showmessage('')
-  end
-
-  def refreshmenu(menu)
-    menu.set(menu.curse, menu.scurse, bib.showkeylist)
+  def linkey(ids)
+    bib.adopt(ids[1], ids[0])
   end
 
   MAINFUNCHASH = { # methods that change the shown list
@@ -248,12 +259,13 @@ module CmdBibControl
     P: :print_all_item\
   }
 
-  MENUFUNCHASH = { # methods to deal with keys
-    A: :add_ancestorkey,
-    a: :addkey,
-    d: :delkey,
-    m: :modkey,
-    l: :linkey\
+  MENUFUNC = { # methods to deal with keys
+    normal: { A: :add_ancestorkey,
+              a: :addkey,
+              d: :delkey,
+              m: :modkey, },
+    null: {},
+    link: { '10': :linkey },
   }
 
   def control(char)
@@ -261,16 +273,19 @@ module CmdBibControl
     showc
   end
 
-  def keycontrol(menu, char)
-    #showmessage("#{@menu.current(0)}  #{@menu.current(1)}").getch
-    MENUFUNCHASH[char.to_sym] && send(MENUFUNCHASH[char.to_sym], menu)
-    refreshmenu(menu)
+  def keycontrol(state, char, currents)
+    if MENUFUNC[state] && MENUFUNC[state][char]
+      send(MENUFUNC[state][char], currents)
+      @menu.set(bib.biblist)
+    end
+
+    showc
   end
 end
 
 # The main class for cmdbib, including the descriptions for the interface
 class CmdBib < CmdBibBase
-  include  NormodeBase
+  include  Message
   include  CmdBibControl
   attr_reader :list
 
@@ -280,16 +295,23 @@ class CmdBib < CmdBibBase
     super(bib)
     @scsize, @stat = [hght, wth], :content
 
-    msize = [hght - 6, bib.showkeylist[0].map { |x| x.size }.max + 3]
-    @menu = inipanel(msize, [2, (wth - msize[1]) / 2], 0, :minor)
+    @menu = FoldMenu.new(bib.biblist,
+                         { xshift: [(wth - bib.biblist.size) / 2], yshift: 2,
+                           fixlen: nil, length: hght - 6 })
+    @menu.setctrl(['q', 10], DOWNKEYS, UPKEYS)
+    @menu.setcol([6])
 
     @diag = Insmode.new('', [@scsize[0] / 3, @scsize[1] * 0.05],
                         [1, @scsize[1] * 0.9], :cmd, ['|', '-'])
 
-    shifts = [0, 0, [wth / 7, 20].max, [wth * 2 / 6, 45].max, wth - 2]
-    @list = inipanel([hght -  3, wth], shifts, 3)
+    shifts = [0, [wth / 6, 25].max, [wth * 2 / 7, 45].max, wth - 2]
+    @list = AdvMenu.new([[]] * 4, { xshift: shifts[0..2],
+                                    width: shifts[3] - shifts[2],
+                                    length: hght - 3 })
+    @list.setctrl(['q'], DOWNKEYS + [10], UPKEYS)
+    @list.setcol([7, false, false])
 
-    iniwindows(hght - 3, wth, shifts[2])
+    iniwindows(hght - 3, wth, shifts[1])
   end
 
   def deal
@@ -302,22 +324,12 @@ class CmdBib < CmdBibBase
   DOWNKEYS = ['j', KEY_DOWN, 9, ' ']
 
   def iniwindows(length, wth, s1)
-    @contwin = Framewin.new(length - 2, wth - s1 - 3, 0, s1 + 1, ['|', '-'])
-    @state = Framewin.new(1, wth - s1 - 3, length - 1, s1 + 1, ['|', '-'])
+    @contwin = Framewin.new(length - 2, wth - s1 - 3, 0, s1, %w(| -))
+    @state = Framewin.new(1, wth - s1 - 3, length - 1, s1, %w(| -))
     set_state
 
     @contwin.refresh
     @state.refresh
-  end
-
-  def inipanel(size, shifts, mainm, mode = :main)
-    menu = AdvMenu.new([[], [], [], []], shifts, [size[0], true], size[1],
-                       mainm, ['|', '-'])
-    tail = mode == :main ? [10] : []
-    menu.setctrl(['q', 10] - tail, DOWNKEYS + tail, UPKEYS)
-    menu.setcol([7, false, false])
-
-    menu
   end
 
   def set_state(outfile = nil)
@@ -330,7 +342,7 @@ class CmdBib < CmdBibBase
   end
 
   def showc
-    showcont(gcont(@list.current)) if @stat == :content
+    showcont(gcont(@list.current(-1))) if @stat == :content
     @state.refresh
     true
   end
