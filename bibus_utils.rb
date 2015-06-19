@@ -342,21 +342,21 @@ class Bibus
 
   def addbib(filename, tmpfile = '~/Documents/tmp.bib')
     readbib(tmpfile)
-    id, path = get_id, "#{@refdir}/#{@bibitems[:identifier]}.pdf"
+    id = get_id
     (keylist, valist) = get_updatelist(id)
 
     @db.insert(:bibref, keylist, valist)
-    @db.insert(:file, %w(ref_id path), [id, path])
+    @db.insert(:file, %w(ref_id path), [id, filepath(@bibitems[:identifier])])
 
-    link_item(@biblist.find(:keyname, 'newtmp').id, id)
+    link_item(@biblist.tree.find(:keyname, 'newtmp').id, id)
 
-    addfile(filename, path)
+    addfile(filename, @bibitems[:identifier])
   end
 
   def debib(bibid, rm_sign = 'no')
     ((bibkey, _)) = @db.select(:bibref, :identifier, :id, bibid)
-    path = @refdir + "/#{bibkey}.pdf"
-    FileUtils.rm(path) if is_y?(rm_sign) && File.exist?(path)
+    is_y?(rm_sign) and File.exist?(filepath(bibkey)) and
+      FileUtils.rm(filepath(bibkey))
 
     @db.delete(:bibref, :id, bibid)
     @db.delete(:bibreflink, :ref_id, bibid)
@@ -391,7 +391,16 @@ class Bibus
     @db.update(:bibref, { note: note }, id: bibid)
   end
 
+  def addfile(filename, ident)
+    return FileUtils.mv(filename, filepath(ident)) if File.file?(filename)
+    puts 'file not exist'
+  end
+
   private
+
+  def filepath(ident)
+    "#{@refdir}/#{ident}.pdf"
+  end
 
   def mod_fname(id, old, new)
     return  if old == new
@@ -425,11 +434,6 @@ class Bibus
     file = File.new(filename, 'w')
     file.puts(history)
     file.close
-  end
-
-  def addfile(filename, path)
-    return FileUtils.mv(filename, path) if File.file?(filename)
-    puts 'file not exist'
   end
 
   def get_updatelist(id)

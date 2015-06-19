@@ -191,8 +191,10 @@ class Insmode
     menulist, tocmp = compmenu
     return if menulist.nil? || menulist.empty?
     lsft = @mode == :ml ? @lsft + 1 : @lsft + 2
-    word = Menu.new(menulist, [lsft, @csft + @file.x], 10, nil, 0,
-                    ['|', '-']).get.sub(tocmp, '')
+    word = Menu.new([menulist],
+                    { yshift: lsft, xshift: [@csft + @file.x], length: 10,
+                      fixlen: nil, width: nil, mainmenu: 0, frame: %w(| -)})
+                    .get.sub(tocmp, '')
 
     word.each_char { |l| @file.addlt(l) }
     yield if block_given?

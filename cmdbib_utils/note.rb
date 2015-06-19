@@ -241,14 +241,16 @@ class NoteItf
     d: :delete,
     p: :picknote,
     r: :pagerefresh,
+    '10': [:move, :d],
+    '9': [:move, :d],
     j: [:move, :d],
-    k: [:move, :u]\
+    k: [:move, :u]
   }
 
   def dealchar(char)
     return if @note.items.empty? && !STRONG_COMMAND.include?(char)
 
-    cmd = COMMANDS[char.to_sym] || return
+    cmd = COMMANDS[char.to_s.to_sym] || return
     cmd.is_a?(Array) ? send(cmd[0], cmd[1]) : send(cmd)
   end
 end

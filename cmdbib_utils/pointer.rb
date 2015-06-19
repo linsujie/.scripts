@@ -12,7 +12,7 @@ class Pointer
     warn = ->() { puts 'Warning:: There is an item too long' }
     warn.call if !array.empty? && segsize < array.max
     @segsize, @len, @state = segsize, array, state
-    @pst = pst >= array.size - 1 ? array.size - 1 : pst
+    @pst = [[pst, array.size - 1].min, 0].max
     @seg, @cur, @segment, @location = 0, 0, [0], [0]
     array.each { |num| addnum(num) }
   end

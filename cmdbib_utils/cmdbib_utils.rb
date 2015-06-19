@@ -44,7 +44,7 @@ CmdBibBase = Struct.new(:bib) do
   end
 
   def listrefresh
-    @list.set(@list.curse, @list.scurse, obtainlist(@list.to_a))
+    @list.set(@list.curse, @list.scurse, obtainlist(@list.to_a(3)))
   end
 
   JNLHASH = { '\prd' => 'PRD', '\apj' => 'ApJ', '\jcap' => 'JCAP',
@@ -72,9 +72,16 @@ CmdBibBase = Struct.new(:bib) do
   def update
     return  unless asks(:update)
 
+    filename = diag_with_msg(:file, :fileask)
     bibname = diag_with_msg(:file, :bibask)
-    return if bibname == ''
 
+    update_item(bibname) if bibname != ''
+
+    ident = bib.db.select(:bibref, :identifier, :id, @list.current(-1))[0][0]
+    bib.addfile(filename, ident) if filename != ''
+  end
+
+  def update_item(bibname)
     bib.modbib(@list.current(-1), bibname)
     back_bibfile(bibname)
   end
@@ -108,7 +115,7 @@ CmdBibBase = Struct.new(:bib) do
     ltb.each { |k| @menu.fdlist.tag(k)  }
     @menu.set
 
-    keyid = @menu.get(1)
+    keyid = @menu.get(1) { |_, state, _| showc; state }
     bib.link_item(keyid, @list.current(-1)) if @menu.char != 'q' && asks(:tag)
 
     ltb.each { |k| @menu.fdlist.tag(k)  }
@@ -301,7 +308,7 @@ class CmdBib < CmdBibBase
     @menu.setctrl(['q', 10], DOWNKEYS, UPKEYS)
     @menu.setcol([6])
 
-    @diag = Insmode.new('', [@scsize[0] / 3, @scsize[1] * 0.05],
+    @diag = Insmode.new('', [@scsize[0] / 3, @scsize[1] / 20],
                         [1, @scsize[1] * 0.9], :cmd, ['|', '-'])
 
     shifts = [0, [wth / 6, 25].max, [wth * 2 / 7, 45].max, wth - 2]

@@ -134,8 +134,8 @@ class Menu
     @win[@opts[:mainmenu]].cont
   end
 
-  def to_a
-    @list[@opts[:mainmenu]]
+  def to_a(col = @opts[:mainmenu])
+    @list[col]
   end
 
   private
