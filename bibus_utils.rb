@@ -94,8 +94,9 @@ module BaseBibUtils
   end
 
   def genbiblist
-    l = @db.select(:bibrefkey, %w(key_id parent key_name), :user, @username)
-    @biblist = FoldList.new(l, @ancestor)
+    l = @db.select(:bibrefkey, %w(key_id parent key_name), :user,
+                   @opts[:username])
+    @biblist = FoldList.new(l, @opts[:ancestor])
   end
 
   def keys(bibid)
@@ -182,7 +183,7 @@ module BibusKey
 
   def adopt(son, parent)
     item_p = @biblist.tree.find(parent.is_a?(Integer) ? :id : :keyname, parent)
-    parent = item_p ? item_p.id : @ancestor
+    parent = item_p ? item_p.id : @opts[:ancestor]
     [*son].select { |x| x.to_i != parent.to_i }
       .each { |x| @db.update(:bibrefkey, { parent: parent }, key_id: x) }
     genbiblist
@@ -193,7 +194,7 @@ module BibusKey
     newid = ((1..keys.size + 1).to_a - keys)[0]
 
     @db.insert(:bibrefkey, [:user, :key_id, :parent, :key_name],
-               [@username, newid, parent, keyname])
+               [@opts[:username], newid, parent, keyname])
     genbiblist
   end
 end
@@ -313,7 +314,7 @@ end
 
 # This class provide all the methods needed
 class Bibus
-  attr_reader :db, :username, :ancestor
+  attr_reader :db, :opts, :username, :ancestor, :reader
   include BaseBibUtils
   include BibusKey
   include BibReader
@@ -322,10 +323,14 @@ class Bibus
 
   INSIDE_COL = [:note]
 
-  def initialize(username, datafile, refdir = '~/Documents/Reference', ancest)
-    @refdir, @username, @ancestor = File.expand_path(refdir), username, ancest
+  DEFOPTS = { username: :user, datafile: 'user.db', reader: 'gvfs-open',
+              refdir: '~/Documents/Reference', ancestor: 1 }
+  def initialize(options = DEFOPTS)
+    @opts = options
+    DEFOPTS.each_key { |k| @opts.key?(k) or @opts[k] = DEFOPTS[k] }
+    @opts[:refdir] = File.expand_path(@opts[:refdir])
 
-    @db = DbUtils.new(File.expand_path(datafile))
+    @db = DbUtils.new(File.expand_path(@opts[:datafile]))
     gen_colist
     genbiblist
   end
@@ -377,7 +382,7 @@ class Bibus
   end
 
   def opbib(ident)
-    system("(gvfs-open #{@refdir}/#{ident}.pdf &)")
+    system("(#{@opts[:reader]} #{filepath(ident)} &)")
     writelogfile(File.expand_path('~/.opbib_history'), ident)
   end
 
@@ -399,12 +404,12 @@ class Bibus
   private
 
   def filepath(ident)
-    "#{@refdir}/#{ident}.pdf"
+    "#{@opts[:refdir]}/#{ident}.pdf"
   end
 
   def mod_fname(id, old, new)
     return  if old == new
-    old, new = [old, new].map! { |x| "#{@refdir}/#{x}.pdf" }
+    old, new = [old, new].map! { |x| filepath(x) }
     @db.update(:file, { path: new }, ref_id: id)
     FileUtils.mv(old, new) if File.file?(old)
   end

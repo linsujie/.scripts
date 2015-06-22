@@ -7,7 +7,8 @@ require CMDUTILS
 require 'curses'
 include Curses
 
-bib = Bibus.new(USER_NAME, DATA_FILE, REF_DIR, ANCESTOR)
+bib = Bibus.new({ username: USER_NAME, datafile: DATA_FILE, reader: READER,
+                  refdir: REF_DIR, ancestor: ANCESTOR })
 
 begin
 init_screen
