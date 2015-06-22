@@ -1,13 +1,7 @@
 #!/usr/bin/env ruby
 # encoding: utf-8
 
-BIBUTILS = File.expand_path('../../bibus_utils.rb', __FILE__)
-CMDUTILS = File.expand_path('../../cmdbib_utils/cmdbib_utils.rb', __FILE__)
-USER_NAME = 'linsj'
-DATA_FILE = '~/.bibus/Daily.db'
-REF_DIR = '~/Documents/Reference'
-ANCESTOR = 3
-
+load File.expand_path('~/.bibcmdrc')
 require BIBUTILS
 require CMDUTILS
 require 'curses'
