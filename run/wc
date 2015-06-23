@@ -1,4 +1,4 @@
-#!/bin/ruby
+#!/bin/env ruby
 # ecoding: utf-8
 
 # counting specified word in a paper

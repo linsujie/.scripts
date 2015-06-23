@@ -53,9 +53,9 @@ class DbUtils < SQLite3::Database
     execute(sentence, con_val)
   end
 
+  TEXTFORM = "TEXT NOT NULL ON CONFLICT REPLACE DEFAULT ''"
   def addcol(colname)
-    type = "text not null on conflict replace default ''"
-    sentence = "alter table bibref add column #{colname} #{type}"
+    sentence = "alter table bibref add column #{colname} #{TEXTFORM}"
     execute(sentence)
   end
 
@@ -140,7 +140,7 @@ module BaseBibUtils
 
   def gen_colist
     @colist = @db.select(:sqlite_master, :sql, %w(type name), %w(table bibref))
-      .to_s.gsub(/[^(]+\(([^)]+)\).+/, '\1').split(',')
+      .to_s.gsub(/\\n/, '').gsub(/[^(]+\(([^)]+)\).+/, '\1').split(',')
       .reduce([]) { |a, e| a << fmtcol(e.split(' ')[0].to_sym) }
   end
 
@@ -330,7 +330,10 @@ class Bibus
     DEFOPTS.each_key { |k| @opts.key?(k) or @opts[k] = DEFOPTS[k] }
     @opts[:refdir] = File.expand_path(@opts[:refdir])
 
+    nulldb = !File.exist?(File.expand_path(@opts[:datafile]))
     @db = DbUtils.new(File.expand_path(@opts[:datafile]))
+    gendb if nulldb
+
     gen_colist
     genbiblist
   end
@@ -402,6 +405,24 @@ class Bibus
   end
 
   private
+
+  BIBREFCOLS = %w(Address Annote Author Booktitle Chapter Edition Editor Howpublished Institution Journal Month Note Number Organizations Pages Publisher School Series Title Report_Type Volume Year URL Custom1 Custom2 Custom3 Custom4 Custom5 ISBN Abstract Doi eprint archivePrefix primaryClass SLACcitation reportNumber keywords adsnote collaboration)
+  def gendb
+    @db.execute(<<-eof
+  CREATE TABLE bibref  (Id INTEGER PRIMARY KEY, Identifier TEXT UNIQUE,
+    BibliographicType INTEGER NOT NULL ON CONFLICT REPLACE DEFAULT 0,
+    #{BIBREFCOLS.map { |x| "#{x} #{DbUtils::TEXTFORM}" }.join(', ')});
+  eof
+          )
+
+    @db.execute("CREATE TABLE bibrefKey  (user #{DbUtils::TEXTFORM}, key_Id INTEGER PRIMARY KEY, parent INTEGER, key_name TEXT NOT NULL ON CONFLICT REPLACE DEFAULT 'newkey');")
+    @db.execute("CREATE TABLE bibrefLink  (key_Id INTEGER,ref_Id INTEGER,UNIQUE (key_Id,ref_Id));")
+    @db.execute("CREATE TABLE bibquery  (query_id INTEGER PRIMARY KEY,user #{DbUtils::TEXTFORM},name TEXT NOT NULL ON CONFLICT REPLACE DEFAULT 'query',query #{DbUtils::TEXTFORM});")
+    @db.execute("CREATE TABLE table_modif (ref_Id INTEGER,creator #{DbUtils::TEXTFORM},date REAL NOT NULL ON CONFLICT REPLACE DEFAULT 0,user_modif TEXT NOT NULL ON CONFLICT REPLACE DEFAULT '',date_modif REAL NOT NULL ON CONFLICT REPLACE DEFAULT 0,UNIQUE (ref_Id));")
+    @db.execute("CREATE TABLE file  (ref_Id INTEGER, path TEXT NOT NULL);")
+    @db.insert(:bibrefkey, %w(user key_Id key_name), [@opts[:username], @opts[:ancestor], 'Reference'])
+    @db.insert(:bibrefkey, %w(user key_Id parent key_name), [@opts[:username], @opts[:ancestor] + 1, @opts[:ancestor], 'newtmp'])
+  end
 
   def filepath(ident)
     "#{@opts[:refdir]}/#{ident}.pdf"
