@@ -70,19 +70,21 @@ module MenuUtils
     @list[0].size == 0 ? 1 : @list[0].size
   end
 
-  def cursedown
+  def cursedown(process = nil)
     return (@curse, @scurse = 0, 0) if @curse == @list[0].size - 1
 
     @curse += 1
     @scurse += 1 if @scurse == @curse - @maxlen
+    process.call if process
   end
 
-  def curseup
+  def curseup(process = nil)
     lsize = @list[0].size
     return (@curse, @scurse = lsize - 1, lsize - @contlen) if @curse == 0
 
     @curse -= 1
     @scurse -= 1 if @scurse == @curse + 1
+    process.call if process
   end
 end
 
@@ -116,12 +118,12 @@ class Menu
     @win.each { |win| win.cont.keypad(true) }
   end
 
-  def get
+  def get(process = nil)
     curs_set(0)
 
     loop do
       char = mrefresh.getch
-      deal(char)
+      deal(char, process)
       break if @qkey.include?(char)
     end
     current
@@ -153,12 +155,12 @@ class Menu
       .map { |pvs, nxt| nxt - pvs - 1 } << lastw
   end
 
-  def deal(char)
+  def deal(char, process = nil)
     return if @list[0].empty?
 
     case true
-    when @dkey.include?(char) then cursedown
-    when @ukey.include?(char) then curseup
+    when @dkey.include?(char) then cursedown(process)
+    when @ukey.include?(char) then curseup(process)
     end
   end
 end
@@ -168,12 +170,12 @@ class AdvMenu < Menu
   attr_reader :char
   attr_accessor :curse, :scurse
 
-  def get(ind = @opts[:mainmenu])
+  def get(ind = @opts[:mainmenu], process = nil)
     curs_set(0)
 
     loop do
       @char = mrefresh.getch
-      deal(@char)
+      deal(@char, process)
       yield(self, @char.to_s) if block_given?
       break if @qkey.include?(@char)
     end
@@ -190,13 +192,13 @@ class FoldMenu < AdvMenu
     super(fdlist.to_a, opts)
   end
 
-  def get(ind = @opts[:mainmenu])
+  def get(ind = @opts[:mainmenu], process = nil)
     curs_set(0)
 
     @state = :normal
     loop do
       @char = mrefresh.getch
-      deal(@char)
+      deal(@char, process)
       fold if @char == 'z'
 
       break if @state == :normal &&  @qkey.include?(@char)

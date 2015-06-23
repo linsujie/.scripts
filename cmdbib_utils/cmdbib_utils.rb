@@ -213,11 +213,13 @@ module CmdBibControl
   def print_cur_item
     ask_outfile unless @outfile
     bib.printbibs([@list.current(-1)], @outfile)
+    showmessage("item #{@list.current(0)} are printed");
   end
 
   def print_all_item
     ask_outfile unless @outfile
     bib.printbibs(bib.db.select(:bibref, :id).flatten, @outfile, 'w')
+    showmessage("All items are printed");
   end
 
   def ask_outfile
@@ -322,7 +324,7 @@ class CmdBib < CmdBibBase
   end
 
   def deal
-    @list.get { |_, char| control(char) }
+    @list.get(3, ->() { showmessage('') }) { |_, char| control(char) }
   end
 
   private
