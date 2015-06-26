@@ -11,18 +11,22 @@ module MenuUtils
   public
 
   def setctrl(qkey, dkey, ukey)
-    @qkey, @dkey, @ukey = qkey, dkey, ukey
+    @qkey = qkey
+    @dkey = dkey
+    @ukey = ukey
   end
 
   def set(curse, scurse, list = @list)
     @list = list[0].is_a?(Array) ? list : [list]
-    @curse, @scurse = curse, scurse
+    @curse = curse
+    @scurse = scurse
 
     mrefresh
   end
 
   def setcol(visible, mainm = @opts[:mainmenu])
-    @visible, @opts[:mainmenu] = visible, mainm
+    @visible = visible
+    @opts[:mainmenu] = mainm
   end
 
   def current(col = @opts[:mainmenu])
@@ -98,12 +102,15 @@ class Menu
   DEFAULTOPT = { yshift: 0, xshift: [0], length: 20, fixlen: true, width: nil,
                  mainmenu: 0, frame: %w(| -) }
   def initialize(list, opts = DEFAULTOPT)
-    @opts, @list = opts, list
+    @opts = opts
+    @list = list
     DEFAULTOPT.each_key { |k| @opts[k] = DEFAULTOPT[k] unless @opts.key?(k) }
 
     construct
 
-    @qkey, @dkey, @ukey = ['q', ' ', 10], ['j', KEY_DOWN, 9], ['k', KEY_UP]
+    @qkey = ['q', ' ', 10]
+    @dkey = ['j', KEY_DOWN, 9]
+    @ukey = ['k', KEY_UP]
   end
 
   def construct(xshift = 0)
@@ -152,16 +159,14 @@ class Menu
 
     lastw = @opts[:width] || @list[0].map(&:size).max + 3
     @width = @opts[:xshift].each_cons(2)
-      .map { |pvs, nxt| nxt - pvs - 1 } << lastw
+             .map { |pvs, nxt| nxt - pvs - 1 } << lastw
   end
 
   def deal(char, process = nil)
     return if @list[0].empty?
 
-    case true
-    when @dkey.include?(char) then cursedown(process)
-    when @ukey.include?(char) then curseup(process)
-    end
+    cursedown(process) if @dkey.include?(char)
+    curseup(process) if @ukey.include?(char)
   end
 end
 
@@ -183,8 +188,10 @@ class AdvMenu < Menu
   end
 end
 
+# The menu that able to be folded
 class FoldMenu < AdvMenu
   attr_reader :fdlist
+
   public
 
   def initialize(fdlist, opts = DEFAULTOPT)
@@ -201,7 +208,7 @@ class FoldMenu < AdvMenu
       deal(@char, process)
       fold if @char == 'z'
 
-      break if @state == :normal &&  @qkey.include?(@char)
+      break if @state == :normal && @qkey.include?(@char)
       @state = yield(@fdlist, @state, @char.to_s.to_sym) if block_given?
     end
     current(ind)
@@ -209,7 +216,8 @@ class FoldMenu < AdvMenu
 
   def set(fdlist = @fdlist)
     fdlist.tree.copy(@fdlist.tree, :id, :ostate)
-    @fdlist, @list = fdlist, fdlist.to_a
+    @fdlist = fdlist
+    @list = fdlist.to_a
 
     mrefresh
   end
@@ -225,7 +233,7 @@ class FoldMenu < AdvMenu
 
     ininumbers
     @curse = @curse % @list[0].size
-    @scurse < @curse - @maxlen + 1 and @scurse = @curse - @maxlen + 1
-    @scurse > @curse and @scurse = @curse
+    @scurse = @curse - @maxlen + 1 if @scurse < @curse - @maxlen + 1
+    @scurse = @curse if @scurse > @curse
   end
 end
