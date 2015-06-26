@@ -22,12 +22,16 @@ end
 
 # The notes with position information
 class Note
+  include Message
+
   attr_reader :notes, :items, :ptr, :changed
 
   public
 
-  def initialize(notes, maxh, maxw)
-    @notes, @maxh, @maxw, @changed = notes, maxh, maxw, false
+  def initialize(opt)
+    @opt = opt
+    @notes = opt[:note]
+    @changed = false
     @items = notes.split("\n\n").map { |item| dealitem(item) }
     pagediv(0, :focus)
   end
@@ -46,14 +50,14 @@ class Note
     define_method(action) do |item = '', order = @ptr.pst|
       @changed = true
       send("#{action}_core", item, order)
-      action == :delete ?  pagediv(order, :focus) : pagediv(order)
+      action == :delete ? pagediv(order, :focus) : pagediv(order)
     end
   end
 
   def store
     @changed = false
     @notes = (0..@items.size - 1)
-      .reduce([]) { |a, e| a << item(e) }.join("\n\n")
+             .reduce([]) { |a, e| a << item(e) }.join("\n\n")
   end
 
   private
@@ -62,7 +66,7 @@ class Note
     @items[order] = dealitem(item)
   end
 
-  def append_core(item, order)
+  def append_core(item, _)
     @items << dealitem(item)
     @ptr.add(@items.last.flatten.size + 2)
   end
@@ -73,52 +77,55 @@ class Note
     @items[order..-1] = @items[order..-1].rotate!(-1)
   end
 
-  def swap_core(uord, order)
+  def swap_core(uord, _)
     @items.swapud!(@ptr.pst, uord)
   end
 
-  def delete_core(item, order)
+  def delete_core(_, order)
     @items.delete_at(order)
   end
 
   def cutline(line, width)
     chgl = ->(a, wd, wth) { a.empty? ? true : a[-1].size + wd.size >= wth }
 
-    line.split(' ').reduce([]) do |a, e|
-      chgl.call(a, e, width) ? a << e : a[-1] << " #{e}"
-      a
+    line.split(' ').each_with_object([]) do |word, page|
+      chgl.call(page, word, width) ? page << word : page[-1] << " #{word}"
     end
   end
 
   def dealitem(item)
     item.sub(/\A\s*/, '@@').split("\n").select { |ln| ln != '' }
-      .map { |ln| cutline(ln, @maxw).map { |l| l.sub('@@', '   ') } }
+      .map { |ln| cutline(ln, @opt[:width]).map { |l| l.sub('@@', '   ') } }
   end
 
-  include Message
   def pagediv(curse = 0, stat = @ptr.state)
     @ptr = Pointer.new(@items.reduce([]) { |a, e| a << e.flatten.size + 2 },
-                       @maxh, curse, stat)
+                       @opt[:nheight], curse, stat)
   end
 end
 
 # The normal mode
 module NoteItfBase
   include Message
-  attr_reader :note, :height
+  attr_reader :opt, :note
 
   public
 
   def change_item(with_cont = false, act = :insert)
     curs_set(1)
 
-    string = with_cont ? @note.item : ''
-    ins = Insmode.new(string, @height, [@scsize[0] - @height - 1, @scsize[1]])
+    ins = insmode(with_cont ? @note.item : '')
+
     ins.deal
     @note.send(act, ins.file.string)
 
     curs_set(0)
     pagerefresh
+  end
+
+  def insmode(string)
+    Insmode.new(string, @opt[:height],
+                [@opt[:scheight] - @opt[:height] - 1, @opt[:scwidth]])
   end
 
   [[:insert, false], [:append, false], [:mod, true]].each do |func, cont|
@@ -157,22 +164,35 @@ module NoteItfBase
   end
 
   def clearpage
-    win = Window.new(@scsize[0], @scsize[1], @height, 0)
+    win = Window.new(@opt[:scheight], @opt[:scwidth], @opt[:height], 0)
     win.refresh
     win.close
   end
 
   def show_note(order = @note.ptr.pst, state = @note.ptr.state)
     return if @note.items.empty?
-    hegt, alti = @note.ptr.len[order], @note.ptr.location[order] + @height
 
-    frame = state == :picked ? %w(! ~) : %w(| -)
-    content = Framewin.new(hegt - 2 , @contwid + 1, alti, @conleft, frame)
+    content = getnotewin(order, state)
+    showcontent(content, order, state)
+
+    content.refresh
+  end
+
+  def showcontent(content, order, state)
     content.framewin.attrset(A_BOLD) if state
     content.framewin.attron(color_pair(6))
-
     content.cont.addstr(@note.items[order].join("\n"))
-    content.refresh
+  end
+
+  def getnotewin(order, state)
+    hegt, alti = getnoteposi(order)
+    frame = state == :picked ? %w(! ~) : %w(| -)
+
+    Framewin.new(hegt - 2, @opt[:width], alti, @opt[:labspace], frame)
+  end
+
+  def getnoteposi(order)
+    [@note.ptr.len[order], @note.ptr.location[order] + @opt[:height]]
   end
 end
 
@@ -182,14 +202,16 @@ class NoteItf
 
   public
 
-  def initialize(notes, head, scsize, labwid, bdspc)
-    @height, @scsize, @labwid, @bdspc = showhead(head), scsize, labwid, bdspc
-    @contwid = labwid - 2 - 2 * bdspc
+  DEFOPT = { note: '', title: '', author: '', identifier: '', scheight: 20,
+             scwidth: 100, labspace: 2 }
+  def initialize(opt = DEFOPT)
+    @opt = opt
+    DEFOPT.each_key { |k| @opt[k] = DEFOPT[k] unless @opt.key?(k) }
 
-    @note = Note.new(notes, scsize[0] - @height - 1, @contwid)
+    @opt[:author] = Author.short(@opt[:author])
+    formatopt
 
-    @frmleft = (scsize[1] - labwid) / 2
-    @conleft = @frmleft + @bdspc
+    @note = Note.new(@opt)
   end
 
   def deal
@@ -197,15 +219,19 @@ class NoteItf
 
     loop do
       char = showmessage('').getch
-      store if char == 's'
       dealchar(char)
+      yield(char) if block_given?
       break if char == 'q' && (@note.changed ? asks(:quit) : true)
     end
   end
 
   private
 
-  HEAD_KEYS = %W(Titile Author identifier)
+  def formatopt
+    @opt[:width] = @opt[:scwidth] - 2 - 2 * @opt[:labspace]
+    @opt[:height] = showhead
+    @opt[:nheight] = @opt[:scheight] - @opt[:height] - 1
+  end
 
   def addstring(string, pair = -1, bold = false)
     attrset(A_BOLD) if bold
@@ -220,21 +246,27 @@ class NoteItf
   def showline(key, content)
     addstring("#{key}: ", 2, true)
     addstring("#{content}\n", 0)
+    "#{key}: #{content}\n"
   end
 
-  def showhead(head)
-    head[1] = Author.short(head[1])
+  def showhead
     setpos(0, 0)
-    (0..2).each { |ind| showline(HEAD_KEYS[ind], head[ind]) }
+    headstr = %w(title author identifier).map(&:to_sym)
+              .reduce('') { |a, e| a + showline(e.upcase, @opt[e]) }
     addstring('^' * cols, 6, true)
     refresh
 
-    headstr = "Title: #{head[0]}\nAuthor: #{head[1]}\nidentifier: #{head[2]}\n"
-    Note.new(headstr, lines, cols).items.flatten.size + 1
+    countline(headstr)
   end
 
-  STRONG_COMMAND = %w(a i r)
+  def countline(headstr)
+    opt = { note: headstr, nheight: lines }
+    Note.new(@opt.merge(opt)).items.flatten.size + 1
+  end
+
+  STRONG_COMMAND = %w(a i r s)
   COMMANDS = { # bind methods to the keys
+    s: :store,
     a: :append,
     i: :insert,
     m: :mod,

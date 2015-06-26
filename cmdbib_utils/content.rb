@@ -1,0 +1,65 @@
+#!/usr/bin/env ruby
+# encoding: utf-8
+
+require_relative '../bibus_utils.rb'
+
+# The content panel of cmdbib_utils, initialized with the size information and
+# providing a method 'show' which require the content
+class Content
+  attr_reader :win, :info
+
+  def initialize(length, wth, shift, bib)
+    @win = Framewin.new(length - 2, wth - shift - 3, 0, shift, %w(| -))
+    @bib = bib
+  end
+
+  CONTINFO = %w(title author id journal volume pages eprint note)
+  ITEMHEAD = { title: '', author: "\n", keyname: "\n", journal: '  ',
+               volume: ' ', pages: ' ', eprint: '  ', note: "\n\n" }
+  COLORS = { title: 8, author: 2, keyname: 5, journal: 6, volume: 6,
+             pages: 6, eprint: 3, note: 8 }
+  JNLHASH = { '\prd' => 'PRD', '\apj' => 'ApJ', '\jcap' => 'JCAP',
+              '\apjl' => 'ApJL', '\mnras' => 'MNRAS',
+              '\aap' =>  'Astron.Astrophys.' }
+
+  def show(id)
+    info = @bib.db.select(:bibref, CONTINFO, :id, id).flatten
+    return if info.empty?
+    @info = forminfo(CONTINFO.map(&:to_sym).zip(info).to_h)
+
+    printcontent
+  end
+
+  private
+
+  def printcontent
+    @win.cont.clear
+    print2win
+    @win.cont.refresh
+  end
+
+  def print2win
+    @win.cont.setpos(0, 0)
+    printinfo(:title)
+
+    @win.cont.attrset(A_BOLD)
+    %w(author keyname journal volume pages eprint).map(&:to_sym)
+      .each { |x| printinfo(x) }
+    @win.cont.attroff(A_BOLD)
+
+    printinfo(:note, BaseBibUtils.fmtnote(@info[:note]))
+  end
+
+  def printinfo(item, cont = nil)
+    return unless @info[item] != ''
+    @win.cont.attron(color_pair(COLORS[item]))
+    @win.cont.addstr(ITEMHEAD[item] + (cont || @info[item].to_s))
+  end
+
+  def forminfo(info)
+    info[:author] = Author.short(info[:author])
+    info[:keyname] = @bib.keynames(info[:id])
+    info[:journal] = (JNLHASH[info[:journal]] || info[:journal])
+    info
+  end
+end
