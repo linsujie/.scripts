@@ -3,31 +3,28 @@
 
 # A tree
 class Tree
-  attr_accessor :val, :children
+  attr_accessor :key, :val, :children
 
   public
 
-  def initialize(value, value_name = %w(value))
-    @@value_name ||= value_name.map(&:to_sym)
-    @val, @children = Hash[[@@value_name, value].transpose], []
+  def initialize(value, key = %w(value))
+    @key = key.map(&:to_sym)
+    @val = Hash[[@key, value].transpose]
+    @children = []
 
-    @@value_name.each { |val| Tree.define_value(val) }
+    @key.each { |k| Tree.define_value(k) }
   end
 
-  def self.set_list(value_name)
-    @@value_name = value_name.map { |x| x.to_sym }
-  end
-
-  def <<(value)
-    subtree = Tree.new(value)
+  def <<(value, key = @key)
+    subtree = Tree.new(value, key)
     @children << subtree
-    return subtree
+    subtree
   end
 
   def find(word = :val, val)
     return self if send(word) == val
     res = @children.each { |child| (c = child.find(word, val)) && (break c) }
-    res if !res.is_a?(Array)
+    res unless res.is_a?(Array)
   end
 
   def eachs(*arr)
@@ -41,15 +38,15 @@ class Tree
   end
 
   def map!(word = :val, *app)
-    append = ->(word, app) { [*app].unshift(word).map(&:send) }
+    append = ->(w, a) { [*a].unshift(w).map(&:send) }
     send("#{word}=", yield(app.empty? ? send(word) : append.call(word, app)))
     @children.each { |child| child.map!(word, *app) { |e| yield e } }
   end
 
-  def copy(another, idval, val)
+  def copy(another, id, val)
     return unless another.is_a?(Tree)
 
-    copytree(another, self, idval, val)
+    copytree(another, self, id, val)
   end
 
   def sort!(word)
@@ -65,21 +62,25 @@ class Tree
 
   private
 
-  def copytree(ori, tar, idval, val)
-    return unless tar.val[idval] == ori.val[idval]
+  def copytree(ori, tar, id, val)
+    return unless tar.val[id] == ori.val[id]
 
     tar.val[val] = ori.val[val]
-    getmap = ->(indenum) { indenum.map { |s, i| [s.val[idval], i] }.to_h }
-    getind = ->(tree) { getmap.call(tree.children.each_with_index) }
-    m_tar, m_ori = getind.call(tar), getind.call(ori)
+
+    m_tar = getindlist(tar, id)
+    m_ori = getindlist(ori, id)
 
     (m_tar.each_key.to_a & m_ori.each_key.to_a).each do |ind|
-      copytree(ori.children[m_ori[ind]], tar.children[m_tar[ind]], idval, val)
+      copytree(ori.children[m_ori[ind]], tar.children[m_tar[ind]], id, val)
     end
   end
 
-  def self.define_value(val)
-    define_method(val) { @val[val.to_sym] }
-    define_method("#{val}=") { |v| @val[val.to_sym] = v }
+  def getindlist(tree, id)
+    tree.children.each_with_index.map { |s, i| [s.val[id], i] }.to_h
+  end
+
+  def self.define_value(key)
+    define_method(key) { @val[key.to_sym] }
+    define_method("#{key}=") { |v| @val[key.to_sym] = v }
   end
 end

@@ -9,7 +9,9 @@ class Framewin
   public
 
   def initialize(height, width, lsft, csft, frame = false)
-    @frame, @h, @w = frame, height - 1, width - 1
+    @frame = frame
+    @h = height - 1
+    @w = width - 1
 
     @framewin = Window.new(height + 2, width + 2, lsft, csft) if @frame
 

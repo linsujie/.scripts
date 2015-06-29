@@ -9,7 +9,7 @@ class Content
   attr_reader :win, :info
 
   def initialize(length, wth, shift, bib)
-    @win = Framewin.new(length - 2, wth - shift - 3, 0, shift, %w(| -))
+    @win = Framewin.new(length - 2, wth - shift - 2, 0, shift, %w(| -))
     @bib = bib
   end
 
@@ -20,7 +20,8 @@ class Content
              pages: 6, eprint: 3, note: 8 }
   JNLHASH = { '\prd' => 'PRD', '\apj' => 'ApJ', '\jcap' => 'JCAP',
               '\apjl' => 'ApJL', '\mnras' => 'MNRAS',
-              '\aap' =>  'Astron.Astrophys.' }
+              '\aap' =>  'Astron.Astrophys.', '\solphys' => 'Solar Physics'
+  }
 
   def show(id)
     info = @bib.db.select(:bibref, CONTINFO, :id, id).flatten
@@ -35,6 +36,7 @@ class Content
   def printcontent
     @win.cont.clear
     print2win
+    @win.freshframe
     @win.cont.refresh
   end
 

@@ -13,7 +13,9 @@ class TxtFile
   public
 
   def initialize(string, maxcols)
-    @array, @maxcols, @position = string.each_char.to_a << :end, maxcols, []
+    @array = string.each_char.to_a << :end
+    @maxcols = maxcols
+    @position = []
     @curse = @array.size - 1
     getposition(0)
   end
@@ -28,7 +30,7 @@ class TxtFile
   end
 
   def letter(curse = @curse)
-    @array[curse] == "\n"  ? '' : @array[curse]
+    @array[curse] == "\n" ? '' : @array[curse]
   end
 
   def x(curse = @curse)
@@ -160,13 +162,17 @@ class Insmode
   public
 
   def initialize(string, position, winsize, mode = :ml, frame = false)
-    @file, @mode, @winsize = TxtFile.new(string, winsize[1] - 1), mode, winsize
+    @file = TxtFile.new(string, winsize[1] - 1)
+    @mode = mode
+    @winsize = winsize
     @lsft, @csft = [*position] << 0
 
     @window = Framewin.new(@winsize[0], @winsize[1], @lsft, @csft, frame)
     @window.cont.keypad(true)
 
-    @quitkey, @chgst, @complist = 10, 9, false
+    @quitkey = 10
+    @chgst = 9
+    @complist = false
     @chgline = mode == :ml ? 10 : -1
   end
 
@@ -192,9 +198,9 @@ class Insmode
     return if menulist.nil? || menulist.empty?
     lsft = @mode == :ml ? @lsft + 1 : @lsft + 2
     word = Menu.new([menulist],
-                    { yshift: lsft, xshift: [@csft + @file.x], length: 10,
-                      fixlen: nil, width: nil, mainmenu: 0, frame: %w(| -)})
-                    .get.sub(tocmp, '')
+                    yshift: lsft, xshift: [@csft + @file.x], length: 10,
+                    fixlen: nil, width: nil, mainmenu: 0, frame: %w(| -))
+           .get.sub(tocmp, '')
 
     word.each_char { |l| @file.addlt(l) }
     yield if block_given?
@@ -231,17 +237,18 @@ class Insmode
   end
 
   def unfocused(ch)
-    case true
-    when !MVHASH[ch].nil? then move(MVHASH[ch])
-    when ch == KEY_DELETE then delch
-    when ch == @chgline then addch("\n")
-    when ch == @chgst then @tabfocus = true
+    return move(MVHASH[ch]) if MVHASH.key?(ch)
+
+    case ch
+    when KEY_DELETE then delch
+    when @chgline then addch("\n")
+    when @chgst then @tabfocus = true
     end
   end
 
   def focused(ch)
-    case true
-    when ch == @quitkey then :quit
+    case ch
+    when @quitkey then :quit
     else block_given? ? complete { yield } : complete
     end
   end

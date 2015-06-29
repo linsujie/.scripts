@@ -42,6 +42,8 @@ CmdBibBase = Struct.new(:bib) do
   def update_item(bibname)
     bib.modbib(@list.current(-1), bibname)
     back_bibfile(bibname)
+
+    refreshpanel
   end
 
   def diag_with_msg(comp_type, msg_type)
@@ -216,16 +218,16 @@ module CmdBibControl
   def print_cur_item
     ask_outfile unless @outfile
     bib.printbibs([@list.current(-1)], @outfile)
-    showmessage("item #{@list.current(0)} are printed");
+    showmessage("item #{@list.current(0)} are printed")
   end
 
   def print_all_item
     ask_outfile unless @outfile
     bib.printbibs(bib.db.select(:bibref, :id).flatten, @outfile, 'w')
-    showmessage("All items are printed");
+    showmessage('All items are printed')
   end
 
-  def add_ancestorkey(ids)
+  def add_ancestorkey(_)
     keyname = diag_with_msg(nil, :newkey)
     bib.addkey(keyname, bib.ancestor) unless keyname == ''
   end
@@ -271,9 +273,9 @@ module CmdBibControl
     normal: { A: :add_ancestorkey,
               a: :addkey,
               d: :delkey,
-              m: :modkey, },
+              m: :modkey },
     null: {},
-    link: { '10': :linkey },
+    link: { '10': :linkey }
   }
 
   def control(char)
@@ -293,33 +295,39 @@ end
 
 # The main class for cmdbib, including the descriptions for the interface
 class CmdBib < CmdBibBase
-  include  Message
-  include  CmdBibControl
+  include Message
+  include CmdBibControl
   attr_reader :list
 
   public
 
   def initialize(hght, wth, bib)
     super(bib)
-    @opt, @stat = [:scheight, :scwidth].zip([hght, wth]).to_h, :content
-
-    @menu = FoldMenu.new(bib.biblist,
-                         { xshift: [(wth - bib.biblist.size) / 2], yshift: 2,
-                           fixlen: nil, length: hght - 6 })
-    @menu.setctrl(['q', 10], DOWNKEYS, UPKEYS)
-    @menu.setcol([6])
+    @opt = [:scheight, :scwidth].zip([hght, wth]).to_h
+    @stat = :content
 
     @diag = Insmode.new('', [@opt[:scheight] / 3, @opt[:scwidth] / 20],
                         [1, @opt[:scwidth] * 0.9], :cmd, ['|', '-'])
+    inimenu(wth, hght)
+    inilist(wth, hght)
+  end
 
+  def inilist(wth, hght)
     shifts = [0, [wth / 6, 25].max, [wth * 2 / 7, 45].max, wth - 2]
-    @list = AdvMenu.new([[]] * 4, { xshift: shifts[0..2],
-                                    width: shifts[3] - shifts[2],
-                                    length: hght - 3 })
+    @list = AdvMenu.new([[]] * 4, xshift: shifts[0..2],
+                                  width: shifts[3] - shifts[2],
+                                  length: hght - 3)
     @list.setctrl(['q'], DOWNKEYS + [10], UPKEYS)
     @list.setcol([7, false, false])
-
     iniwindows(hght - 3, wth, shifts[1])
+  end
+
+  def inimenu(wth, hght)
+    @menu = FoldMenu.new(bib.biblist,
+                         xshift: [(wth - bib.biblist.size) / 2],
+                         yshift: 2, fixlen: nil, length: hght - 6)
+    @menu.setctrl(['q', 10], DOWNKEYS, UPKEYS)
+    @menu.setcol([6])
   end
 
   def deal
