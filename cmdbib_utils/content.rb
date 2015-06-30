@@ -25,8 +25,8 @@ class Content
 
   def show(id)
     info = @bib.db.select(:bibref, CONTINFO, :id, id).flatten
-    return if info.empty?
-    @info = forminfo(CONTINFO.map(&:to_sym).zip(info).to_h)
+
+    @info = !info.empty? && forminfo(CONTINFO.map(&:to_sym).zip(info).to_h)
 
     printcontent
   end
@@ -35,7 +35,7 @@ class Content
 
   def printcontent
     @win.cont.clear
-    print2win
+    print2win if @info
     @win.freshframe
     @win.cont.refresh
   end

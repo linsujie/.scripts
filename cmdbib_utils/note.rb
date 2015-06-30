@@ -8,18 +8,6 @@ require 'curses'
 
 include Curses
 
-# Some methods added to Array
-class Array
-  def swap!(od1, od2)
-    self[od1], self[od2] = self[od2], self[od1]
-  end
-
-  def swapud!(order, uord)
-    od2 = uord == :u ? (order - 1) % size : (order + 1) % size
-    swap!(order, od2)
-  end
-end
-
 # The notes with position information
 class Note
   include Message
@@ -33,24 +21,18 @@ class Note
     @notes = opt[:note]
     @changed = false
     @items = notes.split("\n\n").map { |item| dealitem(item) }
-    pagediv(0, :focus)
+    @ptr = Pointer.new(@items.reduce([]) { |a, e| a << e.flatten.size + 2 },
+                       @opt[:nheight], :focus)
   end
 
   def item(order = @ptr.pst)
     @items[order].map { |line| line.join(' ') }.join("\n")
   end
 
-  def change_notes(order, focus = nil)
-    @changed = true
-    yield(p1, order)
-    focus ? pagediv(order, focus) : pagediv(order, focus)
-  end
-
-  [:mod, :append, :insert, :swap, :delete].each do |action|
-    define_method(action) do |item = '', order = @ptr.pst|
+  [:swap, :mod, :append, :insert, :delete].each do |action|
+    define_method(action) do |item = ''|
       @changed = true
-      send("#{action}_core", item, order)
-      action == :delete ? pagediv(order, :focus) : pagediv(order)
+      send("#{action}_core", item)
     end
   end
 
@@ -62,27 +44,29 @@ class Note
 
   private
 
-  def mod_core(item, order)
-    @items[order] = dealitem(item)
+  def delete_core(_)
+    @items.delete_at(@ptr.pst)
+    @ptr.delete
   end
 
-  def append_core(item, _)
+  def append_core(item)
     @items << dealitem(item)
     @ptr.add(@items.last.flatten.size + 2)
   end
 
-  def insert_core(item, order)
-    append_core(item, order)
-    return if order < 0
-    @items[order..-1] = @items[order..-1].rotate!(-1)
+  def insert_core(item)
+    @items.insert(@ptr.pst, dealitem(item))
+    @ptr.insert(@items[@ptr.pst].flatten.size + 2)
   end
 
-  def swap_core(uord, _)
+  def mod_core(item)
+    @items[@ptr.pst] = dealitem(item)
+    @ptr.mod(@items[@ptr.pst].flatten.size + 2)
+  end
+
+  def swap_core(uord)
     @items.swapud!(@ptr.pst, uord)
-  end
-
-  def delete_core(_, order)
-    @items.delete_at(order)
+    @ptr.swap(uord)
   end
 
   def cutline(line, width)
@@ -96,11 +80,6 @@ class Note
   def dealitem(item)
     item.sub(/\A\s*/, '@@').split("\n").select { |ln| ln != '' }
       .map { |ln| cutline(ln, @opt[:width]).map { |l| l.sub('@@', '   ') } }
-  end
-
-  def pagediv(curse = 0, stat = @ptr.state)
-    @ptr = Pointer.new(@items.reduce([]) { |a, e| a << e.flatten.size + 2 },
-                       @opt[:nheight], curse, stat)
   end
 end
 
@@ -138,11 +117,13 @@ module NoteItfBase
   end
 
   def move(uord)
-    @note.swap(uord) if @note.ptr.state == :picked
+    curbf = @note.ptr.pst
+    fr = @note.ptr.state == :picked ? @note.swap(uord) : @note.ptr.move(uord)
 
-    show_note(@note.ptr.pst, false)
-    (uord == :u ? @note.ptr.down : @note.ptr.up) && pagerefresh
+    show_note(curbf, false)
     show_note
+
+    pagerefresh if fr
   end
 
   def store
