@@ -51,7 +51,7 @@ class Note
 
   def append_core(item)
     @items << dealitem(item)
-    @ptr.add(@items.last.flatten.size + 2)
+    @ptr.append(@items.last.flatten.size + 2)
   end
 
   def insert_core(item)

@@ -1,0 +1,86 @@
+#!/bin/env ruby
+# encoding:utf-8
+
+def dealline(line)
+  dealsap = ->(str) { str =~ /^\s*\++\s*$/ ? "\r\n#{str}\r\n" : str }
+  /(?<lin>.+)\r\n/ =~ line ? dealsap.call(lin + ' ') : "\r\n\r\n"
+end
+
+# The class to format the texfile, there is two format:
+#      sentence: putting each sentence each line
+#      paragraph: putting all the sentence in one paragraph in one line
+class TeXFile
+  attr_reader :paper
+
+  def initialize(filename, type)
+    @filename = filename
+    @curline = ''
+    @paper = []
+    file = File.new(filename)
+    file.map { |l| l.sub(/\r?\n$/, '') }.each { |line| addline(line) }
+
+    splitsentence if type == :s
+  end
+
+  def print(filename = @filename)
+    File.new(filename, 'w').puts(@paper)
+  end
+
+  private
+
+  def splitsentence
+    @paper.map! { |para| split(para) }.flatten!
+  end
+
+  SPLIT_BAN = %w(i.e. fig. Fig. pic. Pic. Tab. tab. Table. table. eq. Eq. Ref. e.g.)
+  def split(para)
+    return para unless para =~ /^\s*\w/
+
+    lines = para.gsub('. ', ".\n").split("\n")
+
+    result = lines.each_with_object(['']) do |l, a|
+      SPLIT_BAN.include?(a[-1].split(' ')[-1]) ? joinline(a, l) : a << l
+    end
+
+    result[1..-1]
+  end
+
+  def lastword(line)
+    line.split(' ')[-1]
+  end
+
+  def addline(line)
+    @lastline = @curline
+    @curline = line
+    nextline ? @paper << @curline : joinline(@paper, @curline)
+  end
+
+  def is_word?(word)
+    case word
+    when /^[\w,.]+[.,)]*$/ then :word
+    when /^\$.*\$[.,)]*$/ then :expression
+    when /^\\(ref|cite|cref){.*}[.,)]*$/ then :command
+    end
+  end
+
+  def nextline
+    is_word?(@lastline.split(' ')[-1]) && is_word?(@curline.split(' ')[0]) and
+      return false
+
+    true
+  end
+
+  def joinline(paper, curline)
+    paper[-1] = paper[-1].sub(/\s*$/, ' ') + curline.sub(/^\s+/, '')
+  end
+
+end
+
+HELPINFO = "Usage: texformat texfilename [(s)entence|(p)aragraph]"
+raise IOError, HELPINFO unless File.exist?(ARGV[0])
+
+type = ARGV[1]
+
+file = TeXFile.new(ARGV[0], (ARGV[1] || 's').to_sym)
+
+file.print

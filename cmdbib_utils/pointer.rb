@@ -68,7 +68,7 @@ class Pointer
     repage
   end
 
-  def add(num)
+  def append(num)
     @len << num
     repage
     @pst = @len.size - 1

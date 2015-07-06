@@ -1,4 +1,4 @@
-#!/home/linsj/bin/ruby
+#!/usr/bin/env ruby
 require 'pathname'
 
 def gvopen(path)

@@ -217,6 +217,7 @@ module CmdBibControl
 
   def print_cur_item
     ask_outfile unless @outfile
+    return unless @outfile
     bib.printbibs([@list.current(-1)], @outfile)
     showmessage("item #{@list.current(0)} are printed")
   end

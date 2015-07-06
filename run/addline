@@ -3,7 +3,7 @@
 
 class Interp
   attr_reader :low, :up
-  
+
   def initialize(table)
     @table = table.map { |item| item.map { |x| Math.log(x) } }
     @E = @table.transpose[0]
