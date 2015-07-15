@@ -90,7 +90,7 @@ module BaseBibUtils
   def self.fmtnote(note, mark = '*')
     return '' if note == ''
     "#{mark}  " + note.gsub(/([^\n]\n)([^\n])/, '\1   \2')
-       .gsub("\n\n", "\n\n#{mark}  ")
+      .gsub("\n\n", "\n\n#{mark}  ")
   end
 
   def genbiblist
@@ -134,17 +134,17 @@ module BaseBibUtils
     DOWN_COL[col] || col
   end
 
-  def is_y?(str)
+  def y?(str)
     str && (str.upcase == "Y\n" || str.upcase == "YES\n") ? true : false
   end
 
   def gen_colist
     @colist = @db.select(:sqlite_master, :sql, %w(type name), %w(table bibref))
-      .to_s.gsub(/\\n/, '').gsub(/[^(]+\(([^)]+)\).+/, '\1').split(',')
-      .reduce([]) { |a, e| a << fmtcol(e.split(' ')[0].to_sym) }
+              .to_s.gsub(/\\n/, '').gsub(/[^(]+\(([^)]+)\).+/, '\1').split(',')
+              .reduce([]) { |a, e| a << fmtcol(e.split(' ')[0].to_sym) }
   end
 
-  def get_id
+  def gen_id
     idlist = @db.select(:bibref, :id, nil, nil).flatten.sort
     ((1..idlist.size + 1).to_a - idlist)[0]
   end
@@ -178,7 +178,7 @@ module BibusKey
   end
 
   def sons(keyid)
-    @bibkeylist.each.select { |k, v| v[0] == keyid }.map! { |x| x[1][1] }
+    @bibkeylist.each.select { |_, v| v[0] == keyid }.map! { |x| x[1][1] }
   end
 
   def adopt(son, parent)
@@ -210,7 +210,8 @@ module BibReader
     public
 
     def initialize(tmpfile)
-      @bibitems, content = {}, getcontent(File.new(File.expand_path(tmpfile)))
+      @bibitems = {}
+      content = getcontent(File.new(File.expand_path(tmpfile)))
       btype, ident = content.shift.sub(/^@(\w+){(.*),\n$/, '\1 \2').split(' ')
       dowarn(readitems(content))
       bibitem = @bibitems.map { |key, val| [translate(key), val] }
@@ -245,7 +246,7 @@ module BibReader
     end
 
     def clearname
-      @bibitems[:author].gsub!(/[{}]/, '')
+      (@bibitems[:author] ||= '').gsub!(/[{}]/, '')
     end
 
     def op_bra(strings)
@@ -312,9 +313,61 @@ module Author
   end
 end
 
+# To generate the initialized database for bibus.
+module GenDB
+  BIBREFCOLS = %w(Address Annote Author Booktitle Chapter Edition Editor
+                  Howpublished Institution Journal Month Note Number
+                  Organizations Pages Publisher School Series Title
+                  Report_Type Volume Year URL Custom1 Custom2 Custom3
+                  Custom4 Custom5 ISBN Abstract Doi eprint archivePrefix
+                  primaryClass SLACcitation reportNumber keywords adsnote
+                  collaboration)
+
+  C_BIBREF = <<-eof
+    CREATE TABLE bibref  (Id INTEGER PRIMARY KEY, Identifier TEXT UNIQUE,
+    BibliographicType INTEGER NOT NULL ON CONFLICT REPLACE DEFAULT 0,
+    #{BIBREFCOLS.map { |x| "#{x} #{DbUtils::TEXTFORM}" }.join(', ')});
+  eof
+  C_BIBKEY = <<-eof
+    CREATE TABLE bibrefKey  (user #{DbUtils::TEXTFORM}, key_Id INTEGER
+    PRIMARY KEY, parent INTEGER, key_name TEXT NOT NULL ON CONFLICT
+    REPLACE DEFAULT 'newkey');
+  eof
+  C_BIBLINK = <<-eof
+    CREATE TABLE bibrefLink  (key_Id INTEGER, ref_Id INTEGER, UNIQUE (key_Id,
+    ref_Id));
+  eof
+  C_BIBQUERY = <<-eof
+    CREATE TABLE bibquery  (query_id INTEGER PRIMARY KEY,user
+    #{DbUtils::TEXTFORM},name TEXT NOT NULL ON CONFLICT REPLACE DEFAULT
+    'query', query #{DbUtils::TEXTFORM});
+  eof
+  C_MODIF = <<-eof
+    CREATE TABLE table_modif (ref_Id INTEGER,creator #{DbUtils::TEXTFORM},
+    date REAL NOT NULL ON CONFLICT REPLACE DEFAULT 0,user_modif TEXT NOT NULL
+    ON CONFLICT REPLACE DEFAULT '',date_modif REAL NOT NULL ON CONFLICT REPLACE
+    DEFAULT 0,UNIQUE (ref_Id));
+  eof
+  C_FILE = 'CREATE TABLE file  (ref_Id INTEGER, path TEXT NOT NULL);'
+
+  def gendb
+    [C_BIBREF, C_BIBKEY, C_BIBLINK, C_BIBQUERY, C_MODIF, C_FILE]
+      .each { |x| @db.execute(x) }
+
+    user = @opts[:username]
+    ancestor = @opts[:ancestor]
+    @db.insert(:bibrefkey, %w(user key_Id key_name),
+               [user, ancestor, 'Reference'])
+
+    @db.insert(:bibrefkey, %w(user key_Id parent key_name),
+               [user, ancestor + 1, ancestor, 'newtmp'])
+  end
+end
+
 # This class provide all the methods needed
 class Bibus
   attr_reader :db, :opts, :username, :ancestor, :reader
+  include GenDB
   include BaseBibUtils
   include BibusKey
   include BibReader
@@ -327,7 +380,7 @@ class Bibus
               refdir: '~/Documents/Reference', ancestor: 1 }
   def initialize(options = DEFOPTS)
     @opts = options
-    DEFOPTS.each_key { |k| @opts.key?(k) or @opts[k] = DEFOPTS[k] }
+    DEFOPTS.each_key { |k| @opts[k] = DEFOPTS[k] unless @opts.key?(k) }
     @opts[:refdir] = File.expand_path(@opts[:refdir])
 
     nulldb = !File.exist?(File.expand_path(@opts[:datafile]))
@@ -350,7 +403,7 @@ class Bibus
 
   def addbib(filename, tmpfile = '~/Documents/tmp.bib')
     readbib(tmpfile)
-    id = get_id
+    id = gen_id
     (keylist, valist) = get_updatelist(id)
 
     @db.insert(:bibref, keylist, valist)
@@ -362,8 +415,8 @@ class Bibus
   end
 
   def debib(bibid, rm_sign = 'no')
-    ((bibkey, _)) = @db.select(:bibref, :identifier, :id, bibid)
-    is_y?(rm_sign) and File.exist?(filepath(bibkey)) and
+    bibkey = @db.select(:bibref, :identifier, :id, bibid)[0][0]
+    y?(rm_sign) && File.exist?(filepath(bibkey)) &&
       FileUtils.rm(filepath(bibkey))
 
     @db.delete(:bibref, :id, bibid)
@@ -374,12 +427,12 @@ class Bibus
   def modbib(id, tmpfile = '~/Documents/tmp.bib')
     readbib(tmpfile)
 
-    ((oldbibkey, _)) = @db.select(:bibref, :identifier, :id, id)
+    oldbibkey = @db.select(:bibref, :identifier, :id, id)[0][0]
     mod_fname(id, oldbibkey, @bibitems[:identifier])
 
     uplist = get_updatelist(id)
-    nullval = (@colist.map { |x| x.downcase } - uplist[0] - INSIDE_COL)
-      .map { |x| [x, ''] }
+    nullval = (@colist.map(&:downcase) - uplist[0] - INSIDE_COL)
+              .map { |x| [x, ''] }
 
     @db.update(:bibref, nullval + uplist.transpose, id: id)
   end
@@ -406,24 +459,6 @@ class Bibus
 
   private
 
-  BIBREFCOLS = %w(Address Annote Author Booktitle Chapter Edition Editor Howpublished Institution Journal Month Note Number Organizations Pages Publisher School Series Title Report_Type Volume Year URL Custom1 Custom2 Custom3 Custom4 Custom5 ISBN Abstract Doi eprint archivePrefix primaryClass SLACcitation reportNumber keywords adsnote collaboration)
-  def gendb
-    @db.execute(<<-eof
-  CREATE TABLE bibref  (Id INTEGER PRIMARY KEY, Identifier TEXT UNIQUE,
-    BibliographicType INTEGER NOT NULL ON CONFLICT REPLACE DEFAULT 0,
-    #{BIBREFCOLS.map { |x| "#{x} #{DbUtils::TEXTFORM}" }.join(', ')});
-  eof
-          )
-
-    @db.execute("CREATE TABLE bibrefKey  (user #{DbUtils::TEXTFORM}, key_Id INTEGER PRIMARY KEY, parent INTEGER, key_name TEXT NOT NULL ON CONFLICT REPLACE DEFAULT 'newkey');")
-    @db.execute("CREATE TABLE bibrefLink  (key_Id INTEGER,ref_Id INTEGER,UNIQUE (key_Id,ref_Id));")
-    @db.execute("CREATE TABLE bibquery  (query_id INTEGER PRIMARY KEY,user #{DbUtils::TEXTFORM},name TEXT NOT NULL ON CONFLICT REPLACE DEFAULT 'query',query #{DbUtils::TEXTFORM});")
-    @db.execute("CREATE TABLE table_modif (ref_Id INTEGER,creator #{DbUtils::TEXTFORM},date REAL NOT NULL ON CONFLICT REPLACE DEFAULT 0,user_modif TEXT NOT NULL ON CONFLICT REPLACE DEFAULT '',date_modif REAL NOT NULL ON CONFLICT REPLACE DEFAULT 0,UNIQUE (ref_Id));")
-    @db.execute("CREATE TABLE file  (ref_Id INTEGER, path TEXT NOT NULL);")
-    @db.insert(:bibrefkey, %w(user key_Id key_name), [@opts[:username], @opts[:ancestor], 'Reference'])
-    @db.insert(:bibrefkey, %w(user key_Id parent key_name), [@opts[:username], @opts[:ancestor] + 1, @opts[:ancestor], 'newtmp'])
-  end
-
   def filepath(ident)
     "#{@opts[:refdir]}/#{ident}.pdf"
   end
@@ -443,7 +478,7 @@ class Bibus
     _, ident, type = arr.shift(3).transpose[1]
     head = "@#{DbUtils::BTYPE[type]}{#{ident},\n\t"
 
-    mlen = arr.transpose[0].map! { |x| x.size }.max
+    mlen = arr.transpose[0].map!(&:size).max
     str = arr.map! { |term| jointerm(term, mlen) }.join("\n\t") + "\n}\n\n"
 
     file.puts head + str
@@ -466,7 +501,7 @@ class Bibus
     keylist = @bibitems.each_key.reduce([:id], :<<)
     valist = @bibitems.each_value.reduce([id], :<<)
 
-    downcolist = @colist.map { |x| x.downcase }
+    downcolist = @colist.map(&:downcase)
     reslist = keylist.select { |x| !downcolist.include?(x.downcase) }
     reslist.each { |x| @db.addcol(x) }
     gen_colist unless reslist.empty?
