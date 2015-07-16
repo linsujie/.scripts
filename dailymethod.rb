@@ -1,4 +1,4 @@
-#!/usr/local/bin/ruby
+#!/usr/env ruby
 # encoding: utf-8
 
 # The module provide the daily used method
@@ -8,22 +8,23 @@ module DailyMethod
     arr = File.new(file).read.split(' ')
     return if arr.empty?
 
-    arr.map! { |x| x.to_f } unless quickmode
+    arr.map!(&:to_f) unless quickmode
 
     arr = arr.each_slice(ncol).to_a
     arr[-1].size == ncol ? arr.transpose : nil
   end
 end
 
+# Extend the Array class
 class Array
   SPLITOR_MAP = ["\t", "\n", "\n\n", '']
 
   def to_page(ind = level_number - 1)
-    self.map { |x| x.is_a?(Array) ? x.to_page(ind - 1) : x }
-    .join(SPLITOR_MAP[ind])
+    map { |x| x.is_a?(Array) ? x.to_page(ind - 1) : x }
+      .join(SPLITOR_MAP[ind])
   end
 
   def level_number
-    self.map { |x| x.is_a?(Array) ? x.level_number + 1 : 1 }.max || 0
+    map { |x| x.is_a?(Array) ? x.level_number + 1 : 1 }.max || 0
   end
 end

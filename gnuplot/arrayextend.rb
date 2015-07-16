@@ -5,12 +5,13 @@
 class Array
   public
 
+  REINDEX_WARN = 'reindex an unsuitable Array'
   def reindex(ind = 2.7)
-    raise TypeError, 'reindex an unsuitable Array', caller if !transposalbe?
+    fail ArguementError, REINDEX_WARN, caller unless transposalbe?
     rind = ->(i) { self[i].zip(self[0]).map! { |f, e| f * e**ind } }
 
-    self.each { |col| col.map! { |x| x.to_f } }
-    (1..self.size - 1).each { |i| self[i] = rind.call(i) }
+    each { |col| col.map!(&:to_f) }
+    (1..size - 1).each { |i| self[i] = rind.call(i) }
     self
   end
 
@@ -21,6 +22,6 @@ class Array
   private
 
   def transposalbe?
-    self.map { |t| t.size }.uniq.size == 1
+    map(&:size).uniq.size == 1
   end
 end

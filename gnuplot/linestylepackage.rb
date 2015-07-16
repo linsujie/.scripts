@@ -4,7 +4,8 @@
 # A simple counter to counter to provide the index number for LineStylePackage
 class RectangleCounter
   def initialize(sizes)
-    @sizes, @iter = sizes, -1
+    @sizes = sizes
+    @iter = -1
   end
 
   def reset(iter = -1)
@@ -14,15 +15,15 @@ class RectangleCounter
   def get(iter = nil)
     iter ||= (@iter += 1)
 
-    @sizes.reduce([]) do |a, e|
+    @sizes.each_with_object([]) do |e, a|
       a << iter % e
       iter /= e
-      a
     end
   end
 end
 
-# The class to provide a { lt: xx, lc: xx, lw: xx } hash that changes iteratively
+# The class to provide a { lt: xx, lc: xx, lw: xx } hash that changes
+# iteratively
 class LineStylePackage
   attr_reader :vechash
   def initialize(lws = nil, lcs = nil, lts = nil)
@@ -30,15 +31,16 @@ class LineStylePackage
     parr = [lws || LW, (lcs || LC).map { |x| "rgb '##{x}'" }, lts || LT]
     @vechash = Hash[tcwlab('wct').zip(parr)]
 
-    tcw = %w(t c w).permutation.map { |x| x.join }
+    tcw = %w(t c w).permutation.map(&:join)
     @counter = Hash[tcw.map { |x| [x, RectangleCounter.new(tcwsize(x))] }]
     tcw.each { |x| LineStylePackage.definetcw(x) }
   end
 
   def self.definetcw(seq)
     define_method("l#{seq}") do |iter = nil|
-      result = tcwlab(seq).map { |l| [l, @vechash[l]] }
-        .zip(@counter[seq].get(iter)).map { |cont, i| [cont[0], cont[1][i]] }
+      result = tcwlab(seq).zip(@counter[seq].get(iter))
+               .map { |type, ind| [type, @vechash[type][ind]] }
+
       Hash[result]
     end
 

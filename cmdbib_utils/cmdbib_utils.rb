@@ -112,7 +112,7 @@ module CmdBibControl
 
   def listhistory
     identlist = File.new(File.expand_path('~/.opbib_history')).each
-                .map { |line| line.split(' ')[-1] }.reverse.uniq[0..2]
+                .map { |line| line.split(' ')[-1] }.reverse.uniq[0..30]
     @list.set(0, 0, listidents(identlist))
   end
 

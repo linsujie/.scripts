@@ -1,8 +1,8 @@
 #!/home/linsj/bin/ruby
 # encoding: utf-8
 
-require File.expand_path('../PlotUtils.rb', __FILE__)
-require File.expand_path('../../DailyMethod.rb', __FILE__)
+require_relative 'plotutils.rb'
+require_relative '../dailymethod.rb'
 
 # To generate Gnuplot::DataSet for Contour files
 #

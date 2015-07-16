@@ -1,7 +1,7 @@
 #!/home/linsj/bin/ruby
 # encoding: utf-8
 
-require File.expand_path('../PlotUtils.rb', __FILE__)
+require_relative 'plotutils.rb'
 # Dealwith the two dimension datas in format:
 #        x0 y0 value00
 #        x0 y1 value01
@@ -53,11 +53,11 @@ class MapData
         plot.unset('surface')
         plot.set('contour')
         plot.cntrparam("level discrete #{@contval.join(', ')}")
-        plot.table(%Q("#{fname}"))
+        plot.table(%("#{fname}"))
 
         plot.data = [
           Gnuplot::DataSet.new(@cols) do |ds|
-            ds.with = "lines"
+            ds.with = 'lines'
             ds.title = ''
           end
         ]
@@ -73,7 +73,7 @@ class MapData
 
   def printarray(fname)
     file = File.new(fname, 'w')
-    filex, filey = ['x', 'y'].map { |f| File.new(fname + f, 'w') }
+    filex, filey = %w(x y).map { |f| File.new(fname + f, 'w') }
 
     file.puts @array.map { |t| formatline(t) }
     filex.puts formatline(@xaxis)
@@ -85,6 +85,7 @@ class MapData
   end
 
   private
+
   INWARN = 'MapData::Warning::inappropriate inputed '
   INARRWARN = INWARN + 'array'
   INCOLWARN = INWARN + 'cols'
@@ -98,7 +99,7 @@ class MapData
 
   def formatline(vector)
     return if vector == [nil, nil, nil]
-    vector.map { |x| format("%.5e", x) }.join(' ')
+    vector.map { |x| format('%.5e', x) }.join(' ')
   end
 
   def readarrayfile(files)
@@ -110,7 +111,8 @@ class MapData
 
   def readarray(datas)
     @array, @xaxis, @yaxis = datas
-    @xsize, @ysize = @xaxis.size, @yaxis.size
+    @xsize = @xaxis.size
+    @ysize = @yaxis.size
 
     yfit = @array.size == @ysize
 
@@ -129,8 +131,10 @@ class MapData
 
   def readcols(cols = @cols)
     @cols = cols
-    @xaxis, @yaxis = @cols[0].uniq.compact, @cols[1].uniq.compact
-    @xsize, @ysize = @xaxis.size, @yaxis.size
+    @xaxis = @cols[0].uniq.compact
+    @yaxis = @cols[1].uniq.compact
+    @xsize = @xaxis.size
+    @ysize = @yaxis.size
 
     return puts(INCOLWARN) unless @cols[2].compact.size == @xsize * @ysize
     @array =  @cols[2].compact.each_slice(@ysize).to_a.transpose
@@ -138,10 +142,11 @@ class MapData
 
   def getcols
     nilterm = [nil, nil, nil]
-    col = ->(i) { [@xaxis[i[0]], @yaxis[i[1]], @array[i[1]][i[0]]] }
+    cvcore = ->(ix, iy) { [@xaxis[ix], @yaxis[iy], @array[iy][ix]] }
+    colvals = ->(ix, iy) { iy == @ysize ? nilterm : cvcore.call(ix, iy) }
 
     @cols = (0..@xsize - 1).to_a.product((0..@ysize).to_a)
-    .reduce([]) { |a, e| a << (e[1] == @ysize ? nilterm : col.call(e)) }[0..-2]
-    .transpose
+            .reduce([]) { |a, e| a << colvals.call(e[0], e[1]) }[0..-2]
+            .transpose
   end
 end

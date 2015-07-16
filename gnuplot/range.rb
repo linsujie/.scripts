@@ -1,4 +1,5 @@
 #!/home/linsj/bin/ruby
+# encoding: utf-8
 require 'gnuplot'
 
 require '~/.scripts/interp.rb'
@@ -10,32 +11,35 @@ class Range
   FILL = 'filledcurves fs transparent solid 0.5 '
 
   def initialize
-    @min, @max, @x = nil, nil, nil
+    @min = nil
+    @max = nil
+    @x = nil
   end
 
   def input(arr)
-    arr.map! { |term| term.map! { |n| n.to_f } }
+    arr.map! { |term| term.map!(&:to_f) }
     intp = Interp.new(arr[0], arr[1])
     ytmp = @x.map { |x| intp.linask(x) }
     inputy(ytmp)
   end
 
   def inputy(vec)
-    vec = vec.map { |x| x.to_f }
-    @min, @max = vec, vec if !@min || !@max
+    vec = vec.map(&:to_f)
+    @min, @max = [vec] * 2 if !@min || !@max
 
     @min = @min.zip(vec).map { |x|  [x.min, 1e-300].max }
     @max = @max.zip(vec).map { |x| [x.max, 1e-300].max }
   end
 
   def inputx(vec)
-    @x = vec.map { |x| x.to_f }
+    @x = vec.map(&:to_f)
   end
 
   def to_ds(label = :normal)
     return unless @x && block_given?
 
-    xaxis, yaxis = @x + @x.reverse, @min + @max.reverse
+    xaxis = @x + @x.reverse
+    yaxis = @min + @max.reverse
     arr = label == :transpose ? [yaxis, xaxis] : [xaxis, yaxis]
     Gnuplot::DataSet.new(arr) { |ds| yield(ds) }
   end

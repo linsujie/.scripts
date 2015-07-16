@@ -2,8 +2,9 @@
 # encoding: utf-8
 
 require 'fileutils'
-require '~/.scripts/DailyMethod.rb'
 require 'pathname'
+require_relative 'dailymethod.rb'
+
 # Drag the exclude line information from data
 class Drags
   include DailyMethod
@@ -19,7 +20,7 @@ class Drags
     @line, @ts, @datas, @errfile = [[], []], [[], []], [[], [], []], []
 
     Dir.glob("#{path}/*").sort_by { |x| x.sub(%r{#{path}/}, '').to_f }
-    .each { |file| drag(file ) }
+      .each { |file| drag(file) }
 
     smooth_start if @line[0][0]
   end
@@ -34,11 +35,11 @@ class Drags
   private
 
   def readdata
-      @line, @ts, @linedash = %w(line ts linedash).map { |x| "#{@outpath}/#{x}" }
-        .map { |f| readfile(f) }
+    @line, @ts, @linedash = %w(line ts linedash).map { |x| "#{@outpath}/#{x}" }
+      .map { |f| readfile(f) }
 
-      smooth_start if @line
-      [@line, @ts, @linedash].reduce(true) { |a, e| a && e }
+    smooth_start if @line
+    [@line, @ts, @linedash].reduce(true) { |a, e| a && e }
   end
 
   MAXSV = 1e-16
@@ -79,7 +80,7 @@ class Drags
 
     arr = readfile(file, 3, true)
     dealwrongfile(file) && return unless arr
-    arr[2].map! { |x| x.to_f }
+    arr[2].map!(&:to_f)
 
     stachi, minchi = arr[2][0], arr[2].min
     arr[2].map! { |x| x - minchi }
