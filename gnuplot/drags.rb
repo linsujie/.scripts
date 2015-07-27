@@ -3,7 +3,7 @@
 
 require 'fileutils'
 require 'pathname'
-require_relative 'dailymethod.rb'
+require_relative '../dailymethod.rb'
 
 # Drag the exclude line information from data
 class Drags

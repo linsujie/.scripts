@@ -31,7 +31,6 @@ module PlotUtils
 
   def group2pair(gstr)
     garr = gstr.split("\n")
-    p gstr
     [garr[0], garr[1..-1].map { |l| l.split(' ') }.transpose]
   end
 end

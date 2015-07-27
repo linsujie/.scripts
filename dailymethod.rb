@@ -13,6 +13,16 @@ module DailyMethod
     arr = arr.each_slice(ncol).to_a
     arr[-1].size == ncol ? arr.transpose : nil
   end
+
+  MP = 0.938272 # in unit of GEV
+  def rgn2ekn(rgn, z)
+    momentn = rgn * z
+    Math.sqrt(MP * MP + momentn * momentn) - MP
+  end
+
+  def ekn2rgn(ekn, z)
+    Math.sqrt(ekn * ekn + 2 * ekn * MP) / z
+  end
 end
 
 # Extend the Array class
@@ -26,5 +36,9 @@ class Array
 
   def level_number
     map { |x| x.is_a?(Array) ? x.level_number + 1 : 1 }.max || 0
+  end
+
+  def average
+    reduce(0.0, &:+) / size
   end
 end

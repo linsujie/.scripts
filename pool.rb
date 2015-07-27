@@ -1,4 +1,4 @@
-#!/home/linsj/bin/ruby
+#!/bin/env ruby
 # encoding: utf-8
 
 # A Thread Pool to limit the max number of threads

@@ -230,7 +230,7 @@ module CmdBibControl
 
   def add_ancestorkey(_)
     keyname = diag_with_msg(nil, :newkey)
-    bib.addkey(keyname, bib.ancestor) unless keyname == ''
+    bib.addkey(keyname, bib.opts[:ancestor]) unless keyname == ''
   end
 
   def addkey(ids)
