@@ -5,8 +5,9 @@ require 'gnuplot'
 
 # Some util methods for gnuplot
 module PlotUtils
-  def readdata(fname)
+  def readdata(fname, mode = :insert)
     result = inputfile(fname).map { |l| l.split(' ').map(&:to_f) }
+    return result if :plain == mode
     size = result.map(&:size).max
     result.map { |l| l.empty? ? [nil] * size : l }
   end
