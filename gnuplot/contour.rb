@@ -18,15 +18,17 @@ require_relative '../dailymethod.rb'
 # inputed ls is a hash in format { lt: [1, 2], lc: [2, 3], lw: [3, 3] }
 class Contour
   include PlotUtils
-  attr_reader :ds
+  attr_accessor :contarray
 
   def initialize(fname, ls, cont_val = nil)
     dealinput(fname, cont_val)
 
     ls = ls.to_a.map { |k, v| v.map { |i| [k, i] } }.transpose
       .map { |l| Hash[l] }
+  end
 
-    @ds = @contarray.to_a.zip(ls)
+  def ds
+    @contarray.to_a.zip(ls)
       .map { |h, l| get_ds(h[1].transpose[0..1], l) if l }.compact
   end
 
@@ -51,14 +53,14 @@ class Contour
 
   def gen_contour(cont_val, arr)
     Gnuplot.open do |gp|
-        Gnuplot::SPlot.new(gp) do |plot|
-          plot.unset('surface')
-          plot.set('contour')
-          plot.cntrparam("level discrete #{cont_val.join(',')}")
-          plot.table(%Q("#{@contfname}"))
+      Gnuplot::SPlot.new(gp) do |plot|
+        plot.unset('surface')
+        plot.set('contour')
+        plot.cntrparam("level discrete #{cont_val.join(',')}")
+        plot.table(%Q("#{@contfname}"))
 
-          plot.data = [ Gnuplot::DataSet.new(arr) { |ds| ds.with = "lines" }]
-        end
+        plot.data = [ Gnuplot::DataSet.new(arr) { |ds| ds.with = "lines" }]
+      end
     end
     readcontour(@contfname)
   end

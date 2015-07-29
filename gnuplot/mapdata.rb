@@ -104,7 +104,7 @@ class MapData
 
   def readarrayfile(files)
     content = readdata(files[0])
-    x, y = files[1..2].map { |fn| readdata(fn).transpose[0] }
+    x, y = files[1..2].map { |fn| readdata(fn).flatten }
 
     readarray([content, x, y])
   end
@@ -137,7 +137,16 @@ class MapData
     @ysize = @yaxis.size
 
     return puts(INCOLWARN) unless @cols[2].compact.size == @xsize * @ysize
+
+    format_cols unless @cols[2].size == @xsize * (@ysize + 1) - 1
     @array =  @cols[2].compact.each_slice(@ysize).to_a.transpose
+  end
+
+  def format_cols
+    @cols.map!(&:compact)
+
+    ins = ->(c, i) { c.insert(@xsize * @ysize - @ysize * i, nil) }
+    @cols.map! { |c| (1..@xsize - 1).each { |i| ins.call(c, i) } && c }
   end
 
   def getcols

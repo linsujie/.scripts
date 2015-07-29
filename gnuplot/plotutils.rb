@@ -6,7 +6,9 @@ require 'gnuplot'
 # Some util methods for gnuplot
 module PlotUtils
   def readdata(fname)
-    inputfile(fname).map { |l| l.split(' ').map(&:to_f) }
+    result = inputfile(fname).map { |l| l.split(' ').map(&:to_f) }
+    size = result.map(&:size).max
+    result.map { |l| l.empty? ? [nil] * size : l }
   end
 
   def get_ds(array, ls, title = '')
