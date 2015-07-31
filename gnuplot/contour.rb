@@ -59,12 +59,11 @@ class Contour
     Gnuplot.open do |gp|
       Gnuplot::SPlot.new(gp) do |plot|
         plot.unset('surface')
-        plot.set('contour')
-        plot.set('dgrid3d')
+        plot.set('contour base')
         plot.cntrparam("level discrete #{cont_val.join(',')}")
         plot.table(%Q("#{contname}"))
 
-        plot.data = [ Gnuplot::DataSet.new(arr) { |ds| ds.with = "lines" }]
+        plot.data = [Gnuplot::DataSet.new(arr) { |ds| ds.with = "lines" }]
       end
     end
     readcontour(contname)
