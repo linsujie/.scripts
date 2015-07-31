@@ -328,7 +328,7 @@ class CmdBib < CmdBibBase
                          xshift: [(wth - bib.biblist.size) / 2],
                          yshift: 2, fixlen: nil, length: hght - 6)
     @menu.setctrl(['q', 10], DOWNKEYS, UPKEYS)
-    @menu.setcol([6])
+    @menu.setcol([COLORS[:menu]])
   end
 
   def deal
