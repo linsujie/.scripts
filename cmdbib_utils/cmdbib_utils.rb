@@ -106,7 +106,7 @@ end
 module CmdBibControl
   def cstat
     @stat = @stat == :content ? :list : :content
-    visible = @stat == :content ? [7, nil, nil, nil] : [7, 5, true, false]
+    visible = @stat == :content ? [7, nil, nil, nil] : [*COLORS[:list], false]
     @list.setcol(visible)
   end
 
@@ -354,7 +354,7 @@ class CmdBib < CmdBibBase
 
     @state.cont.setpos(0, 0)
     @state.cont.attrset(A_BOLD)
-    @state.cont.attron(color_pair(COLOR_CYAN))
+    @state.cont.attron(color_pair(COLORS[:output]))
     @state.cont.addstr("Outfile: #{@outfile}")
   end
 

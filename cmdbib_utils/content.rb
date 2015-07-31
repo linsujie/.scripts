@@ -16,8 +16,6 @@ class Content
   CONTINFO = %w(title author id journal volume pages eprint note)
   ITEMHEAD = { title: '', author: "\n", keyname: "\n", journal: '  ',
                volume: ' ', pages: ' ', eprint: '  ', note: "\n\n" }
-  COLORS = { title: 8, author: 2, keyname: 5, journal: 6, volume: 6,
-             pages: 6, eprint: 3, note: 8 }
   JNLHASH = { '\prd' => 'PRD', '\apj' => 'ApJ', '\jcap' => 'JCAP',
               '\apjl' => 'ApJL', '\mnras' => 'MNRAS',
               '\aap' =>  'Astron.Astrophys.', '\solphys' => 'Solar Physics'

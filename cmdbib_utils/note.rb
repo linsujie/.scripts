@@ -161,7 +161,8 @@ module NoteItfBase
 
   def showcontent(content, order, state)
     content.framewin.attrset(A_BOLD) if state
-    content.framewin.attron(color_pair(6))
+    content.framewin.attron(color_pair(COLORS[:note_frame]))
+    content.cont.attron(color_pair(COLORS[:note_content]))
     content.cont.addstr(@note.items[order].join("\n"))
   end
 
@@ -225,8 +226,8 @@ class NoteItf
   end
 
   def showline(key, content)
-    addstring("#{key}: ", 2, true)
-    addstring("#{content}\n", 0)
+    addstring("#{key}: ", COLORS[:note_key], true)
+    addstring("#{content}\n", COLORS[:note_key])
     "#{key}: #{content}\n"
   end
 
@@ -234,7 +235,7 @@ class NoteItf
     setpos(0, 0)
     headstr = %w(title author identifier).map(&:to_sym)
               .reduce('') { |a, e| a + showline(e.upcase, @opt[e]) }
-    addstring('^' * cols, 6, true)
+    addstring('^' * cols, COLORS[:note_splitor], true)
     refresh
 
     countline(headstr)
