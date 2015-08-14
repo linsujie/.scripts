@@ -255,8 +255,8 @@ class NoteItf
     d: :delete,
     p: :picknote,
     r: :pagerefresh,
-    '10': [:move, :d],
-    '9': [:move, :d],
+    :'10' => [:move, :d],
+    :'9' => [:move, :d],
     j: [:move, :d],
     k: [:move, :u]
   }
