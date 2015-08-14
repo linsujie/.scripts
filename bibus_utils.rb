@@ -182,6 +182,7 @@ module BibusKey
   end
 
   def adopt(son, parent)
+    return if @opts[:ancestors] == son
     item_p = @biblist.tree.find(parent.is_a?(Integer) ? :id : :keyname, parent)
     parent = item_p ? item_p.id : @opts[:ancestor]
     [*son].select { |x| x.to_i != parent.to_i }

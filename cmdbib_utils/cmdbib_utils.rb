@@ -75,10 +75,12 @@ CmdBibBase = Struct.new(:bib) do
                     :link => { :q => :normal, :'10' => :normal } }
 
   def dealstate(fdlist, state, char, lastid)
+    curr_id = @menu.current(1).to_i
+    return [lastid, state] if curr_id == bib.opts[:ancestor] && :l == char
     newstate = KEY_STATE_MAP[state][char] || state
 
     if newstate != state
-      lastid = @menu.current(1).to_i
+      lastid = curr_id
       chstate(fdlist, lastid, state, newstate)
     end
 
