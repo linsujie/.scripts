@@ -71,8 +71,8 @@ CmdBibBase = Struct.new(:bib) do
     block_given? ? yed.call(@diag.file.string) : @diag.file.string
   end
 
-  KEY_STATE_MAP = { normal: { l: :link },
-                    link: { q: :normal, '10': :normal } }
+  KEY_STATE_MAP = { :normal => { :l => :link },
+                    :link => { :q => :normal, :'10' => :normal } }
 
   def dealstate(fdlist, state, char, lastid)
     newstate = KEY_STATE_MAP[state][char] || state
@@ -276,7 +276,7 @@ module CmdBibControl
               d: :delkey,
               m: :modkey },
     null: {},
-    link: { '10': :linkey }
+    link: { :'10' => :linkey }
   }
 
   def control(char)
