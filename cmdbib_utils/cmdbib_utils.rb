@@ -108,7 +108,7 @@ end
 module CmdBibControl
   def cstat
     @stat = @stat == :content ? :list : :content
-    visible = @stat == :content ? [7, nil, nil, nil] : [*COLORS[:list], false]
+    visible = @stat == :content ? [COLORS[:list][0]] + [nil] * 3 : [*COLORS[:list], false]
     @list.setcol(visible)
   end
 
@@ -226,6 +226,7 @@ module CmdBibControl
 
   def print_all_item
     ask_outfile unless @outfile
+    return unless @outfile
     bib.printbibs(bib.db.select(:bibref, :id).flatten, @outfile, 'w')
     showmessage('All items are printed')
   end
@@ -321,7 +322,7 @@ class CmdBib < CmdBibBase
                                   width: shifts[3] - shifts[2],
                                   length: hght - 3)
     @list.setctrl(['q'], DOWNKEYS + [10], UPKEYS)
-    @list.setcol([7, false, false])
+    @list.setcol([COLORS[:list][0], false, false, false])
     iniwindows(hght - 3, wth, shifts[1])
   end
 

@@ -439,7 +439,7 @@ class Bibus
   end
 
   def opbib(ident)
-    system("(#{@opts[:reader]} #{filepath(ident)} &)")
+    system("(#{@opts[:reader]} '#{filepath(ident)}' &)")
     writelogfile(File.expand_path('~/.opbib_history'), ident)
   end
 
