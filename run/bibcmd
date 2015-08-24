@@ -7,8 +7,11 @@ require CMDUTILS
 require 'curses'
 include Curses
 
+READER ||= 'gvfs-open'
+ASSREADER ||= 'mupdf'
+
 bib = Bibus.new({ username: USER_NAME, datafile: DATA_FILE, reader: READER,
-                  refdir: REF_DIR, ancestor: ANCESTOR })
+                  assreader: ASSREADER, refdir: REF_DIR, ancestor: ANCESTOR })
 
 begin
 init_screen

@@ -166,7 +166,7 @@ module CmdBibControl
     bib.debib(@list.current(-1), "y\n") if asks(:delete)
   end
 
-  NOTEADD = %w(o)
+  NOTEADD = %w(o O)
   NOTEINFO = %w(note title author identifier)
   def noting
     return if @list.current(-1) == ''
@@ -179,7 +179,7 @@ module CmdBibControl
   def getnotes
     pad = NoteItf.new(getnoteopt)
 
-    pad.deal { |ch| send(MAINFUNCHASH[ch.to_sym]) if NOTEADD.include?(ch) }
+    pad.deal { |ch| send(*MAINFUNCHASH[ch.to_sym]) if NOTEADD.include?(ch) }
     pad.note.notes
   end
 
@@ -213,22 +213,25 @@ module CmdBibControl
     bib.addfile(filename, ident) if filename != ''
   end
 
-  def open
-    @list.current(-1) != '' && bib.opbib(@list.current(0))
+  def open(associate)
+    @list.current(-1) != '' && bib.opbib(@list.current(0), associate)
   end
 
-  def print_cur_item
+  def print_item(kind)
     ask_outfile unless @outfile
     return unless @outfile
-    bib.printbibs([@list.current(-1)], @outfile)
-    showmessage("item #{@list.current(0)} are printed")
+    bibtext, message = bibinfo(kind)
+
+    bib.printbibs(bibtext, @outfile)
+    showmessage("#{message} are printed")
   end
 
-  def print_all_item
-    ask_outfile unless @outfile
-    return unless @outfile
-    bib.printbibs(bib.db.select(:bibref, :id).flatten, @outfile, 'w')
-    showmessage('All items are printed')
+  def bibinfo(kind)
+    if kind == :all
+      return bib.db.select(:bibref, :id).flatten, "All items"
+    elsif kind == :current
+      return [@list.current(-1)], "item #{@list.current(0)}"
+    end
   end
 
   def add_ancestorkey(_)
@@ -255,22 +258,23 @@ module CmdBibControl
   end
 
   MAINFUNCHASH = { # methods that change the shown list
-    c: :cstat,
-    h: :listhistory,
-    l: :listkeys,
-    L: :listall,
-    R: :refreshpanel,
-    s: :searchdiag,
+    c: [:cstat],
+    h: [:listhistory],
+    l: [:listkeys],
+    L: [:listall],
+    R: [:refreshpanel],
+    s: [:searchdiag],
     # methods that change the sqlite data
-    a: :add,
-    d: :delete,
-    n: :noting,
-    t: :tag_current,
-    u: :update,
+    a: [:add],
+    d: [:delete],
+    n: [:noting],
+    t: [:tag_current],
+    u: [:update],
     # methods that change nothing
-    o: :open,
-    p: :print_cur_item,
-    P: :print_all_item\
+    o: [:open, false],
+    O: [:open, true],
+    p: [:print_item, :current],
+    P: [:print_item, :all],
   }
 
   MENUFUNC = { # methods to deal with keys
@@ -283,7 +287,7 @@ module CmdBibControl
   }
 
   def control(char)
-    MAINFUNCHASH[char.to_sym] && send(MAINFUNCHASH[char.to_sym])
+    MAINFUNCHASH[char.to_sym] && send(*MAINFUNCHASH[char.to_sym])
     showc
   end
 

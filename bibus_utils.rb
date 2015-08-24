@@ -377,7 +377,8 @@ class Bibus
 
   INSIDE_COL = [:note]
 
-  DEFOPTS = { username: :user, datafile: 'user.db', reader: 'gvfs-open',
+  DEFOPTS = { username: :user, datafile: 'user.db',
+              reader: 'gvfs-open', assreader: 'gvfs-open',
               refdir: '~/Documents/Reference', ancestor: 1 }
   def initialize(options = DEFOPTS)
     @opts = options
@@ -438,8 +439,9 @@ class Bibus
     @db.update(:bibref, nullval + uplist.transpose, id: id)
   end
 
-  def opbib(ident)
-    system("(#{@opts[:reader]} '#{filepath(ident)}' &)")
+  def opbib(ident, associate = false)
+    reader = associate ? @opts[:assreader] : @opts[:reader]
+    system("(#{reader} '#{filepath(ident)}' &)")
     writelogfile(File.expand_path('~/.opbib_history'), ident)
   end
 
@@ -460,8 +462,9 @@ class Bibus
 
   private
 
-  def filepath(ident)
-    "#{@opts[:refdir]}/#{ident}.pdf"
+  def filepath(ident, postfix = 'pdf')
+    prefix = "#{@opts[:refdir]}/#{ident}"
+    Dir.glob("#{prefix}.*")[0] || "#{prefix}.#{postfix}"
   end
 
   def mod_fname(id, old, new)
