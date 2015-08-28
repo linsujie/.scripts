@@ -10,9 +10,10 @@ class Range
 
   FILL = 'filledcurves fs transparent solid 0.5 '
 
-  def initialize
+  def initialize(positive = true)
     @min = nil
     @max = nil
+    @positive = positive
     @x = nil
   end
 
@@ -27,8 +28,8 @@ class Range
     vec = vec.map(&:to_f)
     @min, @max = [vec] * 2 if !@min || !@max
 
-    @min = @min.zip(vec).map { |x|  [x.min, 1e-300].max }
-    @max = @max.zip(vec).map { |x| [x.max, 1e-300].max }
+    @min = @min.zip(vec).map { |x| @positive ? [x.min, 1e-300].max : x.min }
+    @max = @max.zip(vec).map { |x| @positive ? [x.max, 1e-300].max : x.max }
   end
 
   def inputx(vec)

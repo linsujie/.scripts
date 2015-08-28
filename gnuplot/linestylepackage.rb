@@ -26,10 +26,12 @@ end
 # iteratively
 class LineStylePackage
   attr_reader :vechash
-  def initialize(lws = nil, lcs = nil, lts = nil)
+
+  def initialize(vechash = DEFAULT_HASH)
     @iter = -1
-    parr = [lws || LW, (lcs || LC).map { |x| "rgb '##{x}'" }, lts || LT]
-    @vechash = Hash[tcwlab('wct').zip(parr)]
+    @vechash = vechash
+    DEFAULT_HASH.each { |k, v| @vechash[k] = v unless @vechash.key?(k) }
+    @vechash[:lc].map! { |x| "rgb '##{x}'" }
 
     tcw = %w(t c w).permutation.map(&:join)
     @counter = Hash[tcw.map { |x| [x, RectangleCounter.new(tcwsize(x))] }]
@@ -51,9 +53,10 @@ class LineStylePackage
 
   private
 
-  LW = [3, 6]
-  LC = %w(FF0000 0000FF 008800 FF8800 FF00FF 0088FF 888888 000000)
-  LT = [1, 2, 4, 5, 7, 8]
+  DEFAULT_HASH = { lw: [3, 6],
+                   lc: %w(FF0000 0000FF 008800 FF8800 FF00FF 0088FF 888888
+                          000000),
+                   lt: [1, 2, 4, 5, 7, 8] }
 
   def tcwlab(sequence)
     sequence.each_char.map { |x| "l#{x}".to_sym }
