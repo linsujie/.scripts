@@ -405,15 +405,20 @@ class Bibus
 
   def addbib(filename, tmpfile = '~/Documents/tmp.bib')
     readbib(tmpfile)
-    id = gen_id
+    id, = @db.select(:bibref, :id, :identifier, @bibitems[:identifier])[0]
+    id ? moditem(id) : additem(gen_id)
+
+    addfile(filename, @bibitems[:identifier])
+    id ? :mod : :add
+  end
+
+  def additem(id)
     (keylist, valist) = get_updatelist(id)
 
     @db.insert(:bibref, keylist, valist)
     @db.insert(:file, %w(ref_id path), [id, filepath(@bibitems[:identifier])])
 
     link_item(@biblist.tree.find(:keyname, 'newtmp').id, id)
-
-    addfile(filename, @bibitems[:identifier])
   end
 
   def debib(bibid, rm_sign = 'no')
@@ -428,7 +433,10 @@ class Bibus
 
   def modbib(id, tmpfile = '~/Documents/tmp.bib')
     readbib(tmpfile)
+    moditem(id)
+  end
 
+  def moditem(id)
     oldbibkey = @db.select(:bibref, :identifier, :id, id)[0][0]
     mod_fname(id, oldbibkey, @bibitems[:identifier])
 
@@ -457,7 +465,7 @@ class Bibus
 
   def addfile(filename, ident)
     return FileUtils.mv(filename, filepath(ident)) if File.file?(filename)
-    puts 'file not exist'
+    :no_file
   end
 
   private
@@ -468,7 +476,7 @@ class Bibus
   end
 
   def mod_fname(id, old, new)
-    return  if old == new
+    return if old == new
     old, new = [old, new].map! { |x| filepath(x) }
     @db.update(:file, { path: new }, ref_id: id)
     FileUtils.mv(old, new) if File.file?(old)

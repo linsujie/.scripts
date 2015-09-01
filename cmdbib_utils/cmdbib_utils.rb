@@ -158,7 +158,8 @@ module CmdBibControl
 
     return if filename == '' || bibname == ''
 
-    bib.addbib(filename, bibname)
+    addresult = bib.addbib(filename, bibname)
+    showmessage("The item aready exist, modify it") if addresult == :mod
     back_bibfile(bibname)
   end
 
@@ -202,7 +203,7 @@ module CmdBibControl
   end
 
   def update
-    return  unless asks(:update)
+    return unless asks(:update)
 
     filename = diag_with_msg(:file, :fileask)
     bibname = diag_with_msg(:file, :bibask)
