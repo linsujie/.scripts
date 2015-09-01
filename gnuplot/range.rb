@@ -36,6 +36,10 @@ class Range
     @x = vec.map(&:to_f)
   end
 
+  def print(filename)
+    File.new(filename, 'w').puts @x.zip(@min, @max).map! { |l| l.join(' ') }
+  end
+
   def to_ds(label = :normal)
     return unless @x && block_given?
 
