@@ -128,7 +128,7 @@ module BaseBibUtils
                    :Number, :Organizations, :Pages, :Publisher, :School, \
                    :Series, :Title, :Volume, :Year, :URL, \
                    :Custom1, :Custom2, :Custom3, :Custom4, :Custom5, \
-                   :Abstract].map { |x| [x, x.downcase] }]
+                   :Abstract, :BibNote].map { |x| [x, x.downcase] }]
 
   def fmtcol(col)
     DOWN_COL[col] || col
@@ -322,7 +322,7 @@ module GenDB
                   Report_Type Volume Year URL Custom1 Custom2 Custom3
                   Custom4 Custom5 ISBN Abstract Doi eprint archivePrefix
                   primaryClass SLACcitation reportNumber keywords adsnote
-                  collaboration)
+                  collaboration BibNote)
 
   C_BIBREF = <<-eof
     CREATE TABLE bibref  (Id INTEGER PRIMARY KEY, Identifier TEXT UNIQUE,
@@ -375,7 +375,7 @@ class Bibus
 
   public
 
-  INSIDE_COL = [:note]
+  INSIDE_COL = [:bibnote]
 
   DEFOPTS = { username: :user, datafile: 'user.db',
               reader: 'gvfs-open', assreader: 'gvfs-open',
@@ -460,12 +460,12 @@ class Bibus
   end
 
   def storenote(bibid, note)
-    @db.update(:bibref, { note: note }, id: bibid)
+    @db.update(:bibref, { bibnote: note }, id: bibid)
   end
 
   def addfile(filename, ident)
-    return FileUtils.mv(filename, filepath(ident)) if File.file?(filename)
-    :no_file
+    return :no_file unless File.file?(filename)
+    FileUtils.mv(filename, filepath(ident))
   end
 
   private
@@ -486,6 +486,7 @@ class Bibus
     bib = @db.select(:bibref, '*', :id, id)
     return if bib.empty?
     arr = bib.unshift(@colist).transpose.select { |term| term[1][0] }
+          .select { |term| term[0] != :bibnote }
 
     _, ident, type = arr.shift(3).transpose[1]
     head = "@#{DbUtils::BTYPE[type]}{#{ident},\n\t"

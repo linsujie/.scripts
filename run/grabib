@@ -1,4 +1,4 @@
-#!/bin/ruby
+#!/bin/env ruby
 # encoding: utf-8
 
 # A class to grab certain items from a bib file
@@ -45,7 +45,7 @@ class Bib
 end
 
 def grip(line)
-  /\\citation{(?<idts>[\w,]+)}/ =~ line && idts.split(',')
+  /\\citation{(?<idts>[\w:.,]+)}/ =~ line && idts.split(',')
 end
 
 def postfix(str, pos)
@@ -55,8 +55,8 @@ end
 filename = postfix(ARGV[0], '.aux')
 bibname =  postfix(ARGV[0], '.bib')
 
-idents = File.new(filename).each.map { |line| grip(line) }
-  .select { |w| w }.flatten.uniq
+idents = File.new(filename).each.select { |x| x =~ /citation/ }
+         .map { |line| grip(line) }.select { |w| w }.flatten.uniq
 
 result = Bib.new(bibname, idents).grab
 

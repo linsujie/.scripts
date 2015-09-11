@@ -13,9 +13,9 @@ class Content
     @bib = bib
   end
 
-  CONTINFO = %w(title author id journal volume pages eprint note)
+  CONTINFO = %w(title author id journal volume pages eprint bibnote)
   ITEMHEAD = { title: '', author: "\n", keyname: "\n", journal: '  ',
-               volume: ' ', pages: ' ', eprint: '  ', note: "\n\n" }
+               volume: ' ', pages: ' ', eprint: '  ', bibnote: "\n\n" }
   JNLHASH = { '\prd' => 'PRD', '\apj' => 'ApJ', '\jcap' => 'JCAP',
               '\apjl' => 'ApJL', '\mnras' => 'MNRAS',
               '\aap' =>  'Astron.Astrophys.', '\solphys' => 'Solar Physics'
@@ -47,7 +47,7 @@ class Content
       .each { |x| printinfo(x) }
     @win.cont.attroff(A_BOLD)
 
-    printinfo(:note, BaseBibUtils.fmtnote(@info[:note]))
+    printinfo(:bibnote, BaseBibUtils.fmtnote(@info[:bibnote]))
   end
 
   def printinfo(item, cont = nil)

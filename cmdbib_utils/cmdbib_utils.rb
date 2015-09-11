@@ -168,7 +168,8 @@ module CmdBibControl
   end
 
   NOTEADD = %w(o O)
-  NOTEINFO = %w(note title author identifier)
+  BIBNOTEKEY = %w(bibnote title author identifier)
+  NOTEKEY = %w(note title author identifier)
   def noting
     return if @list.current(-1) == ''
     clear
@@ -185,8 +186,8 @@ module CmdBibControl
   end
 
   def getnoteopt
-    info = bib.db.select(:bibref, NOTEINFO, :id, @list.current(-1)).flatten
-    opt = NOTEINFO.map(&:to_sym).zip(info).to_h.merge(@opt)
+    info = bib.db.select(:bibref, BIBNOTEKEY, :id, @list.current(-1)).flatten
+    opt = NOTEKEY.map(&:to_sym).zip(info).to_h.merge(@opt)
     opt
   end
 
