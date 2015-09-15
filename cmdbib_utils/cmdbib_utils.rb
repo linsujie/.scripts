@@ -351,7 +351,7 @@ class CmdBib < CmdBibBase
 
   def iniwindows(length, wth, s1)
     @content = Content.new(length, wth, s1, bib)
-    @state = Framewin.new(1, wth - s1 - 3, length - 1, s1, %w(| -))
+    @state = Framewin.new(1, wth - s1 - 2, length - 1, s1, %w(| -))
     set_state
 
     @content.win.refresh

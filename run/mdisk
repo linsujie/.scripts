@@ -2,11 +2,12 @@
 # encoding: utf-8
 
 require 'fileutils'
+require 'rainbow/ext/string'
 
 # This script is used to mount the known disk (including usb disk) easily
 
+# A class to ask the label of disk
 class DiskLabel
-
   LABEL_PATH = '/dev/disk/by-label/'
 
   def initialize
@@ -19,16 +20,17 @@ class DiskLabel
   end
 
   private
+
   def formchar(file)
-    unescape(file.gsub(%r(^.+/([^/]+)$), '\1')).encode('utf-8', 'gbk')
+    unescape(file.gsub(%r{^.+/([^/]+)$}, '\1')).encode('utf-8', 'gbk')
   end
 
   def unescape(src)
-    String.class_eval(%Q("#{src}"))
+    String.class_eval(%("#{src}"))
   end
 
   def parent(file)
-    file.gsub(%r((^.+)/[^/]+$), '\1')
+    file.gsub(%r{(^.+)/[^/]+$}, '\1')
   end
 
   def linkpt(lnfile)
@@ -36,6 +38,7 @@ class DiskLabel
   end
 end
 
+# A class to show the mount points of each disk
 class DiskMP
   def initialize
     @mount_point = Hash[`df`.each_line.to_a[1..-1].map { |l| deallinedf(l) }]
@@ -51,144 +54,206 @@ class DiskMP
   end
 end
 
+# Initialize all the information of disks
 class DiskInfo
-  attr_reader :disk
-
   def initialize(str)
-    @str, @mp, @label = str, DiskMP.new, DiskLabel.new
-    disk = @str.map { |l| %r{^Disk (?<dev>/dev/hd\w|/dev/sd\w)} =~ l and dev }
-    .compact
-    @disk = Hash[disk.map { |k| [k, subdisk(k)]}]
+    @str = str
+    @mp = DiskMP.new
+    @label = DiskLabel.new
+
+    @disk = @str.split("\nDisk ").map { |x| readinfo(x) }.compact.to_h
+  end
+
+  def get(dev, hash = @disk)
+    return unless hash
+    hash[dev] || hash.each_value.map { |v| info(dev, v[:subdisks]) }.compact[0]
+  end
+
+  def list
+    listrec.map { |item| item.is_a?(Array) ? item : [item] }
   end
 
   private
 
-  def subdisk(dk)
-    hash = Hash[@str.map { |l| /^#{dk}/ =~ l and readsubinfo(l) }.compact]
-    hash.empty? ? readwholeinfo(dk) : hash
+  def listrec(hash = @disk)
+    hash.map { |k, v| v[:subdisks] ? listrec(v[:subdisks]) : listinfo(k, v) }
   end
 
-  COLS = [:device, :boot, :start, :end, :blocks, :id, :system, :path, :label]
-  COLNUM = COLS.size - 1
-  def readwholeinfo(dk)
-    ind = @str.find_index { |l| /#{dk}/ =~ l }
-    %r{^Disk /dev/\w+[^\d]+[0-9.]+ \w+[^\d]+\d+[^\d]+(?<sec>\d+)} =~ @str[ind]
-    /^Disklabel type: (?<sys>.+)$/ =~ @str[ind + 4]
-    values = [nil, 0, sec, sec, nil, sys, @mp.path(dk), @label.lab(dk)]
-    hash = Hash[COLS[1..COLNUM].zip(values)]
-    hash[:blocks] = num_to_G(hash[:blocks])
-    hash
+  LISTVAL = %w(label path system size).map(&:to_sym)
+  def listinfo(dev, v)
+    LISTVAL.map { |k| [k, v[k]] }.to_h.merge(device: dev)
   end
 
-  def readsubinfo(line)
-    term = line.split(' ')
-    term.insert(1, nil) unless term[1] == '*'
-    term[COLNUM - 2] = term[COLNUM - 2..-1].join(' ')
-    term[COLNUM - 1], term[COLNUM] = @mp.path(term[0]), @label.lab(term[0])
+  SYSTYPE = { 'dos' =>  'HPFS/NTFS/exFAT' }
+  def readinfo(diskinfo)
+    diskinfo = diskinfo.split("\n")
+    return unless %r{(?<diskname>/dev/[\w/-]+)[^\d]+
+                     (?<sizeh>[\d.]+) \w+[^\d]+
+                     (?<size>\d+)[^\d]+
+                     (?<blocknum>\d+)}x =~ diskinfo[0]
 
-    hash = Hash[COLS[1..COLNUM].zip(term[1..COLNUM])]
-    hash[:blocks] = num_to_G(hash[:blocks])
-    [term[0], hash]
+    /= (?<blocksize>\d+)[^\d]+$/ =~ diskinfo[1]
+    info = [diskname, { size: byte_to_g(size), blocknum: blocknum,
+                        blocksize: blocksize, path: @mp.path(diskname),
+                        label: @label.lab(diskname) }]
+
+    return info unless diskinfo[4]
+
+    /^Disklabel type: (?<system>.+)$/ =~ diskinfo[4]
+    info[1][:system] = SYSTYPE[system]
+
+    info[1][:subdisks] = diskinfo[4..-1].map { |l| readsubdisk(l) }.compact.to_h
+    info[1][:subdisks] = nil if info[1][:subdisks].empty?
+    info
   end
 
-  def num_to_G(num)
-    num.is_a?(String) ? num.to_f / (1000 * 1000) : num
+  def byte_to_g(x)
+    x.to_f / 1024**3
+  end
+
+  def k_to_g(x)
+    x.to_f / 1024**2
+  end
+
+  def readsubdisk(l)
+    return unless %r{(?<diskname>/dev/[\w/-]+)\s+
+                     (?<boot>\*)?\s+
+                     (?<start>\d+)\s+
+                     (?<ends>\d+)\s+
+                     (?<size>\d+)\+?\s+
+                     (?<id>\w+)\s+
+                     (?<system>.+)}x =~ l
+
+    [diskname,
+     { boot: boot, start: start, end: ends, blocknum: ends.to_i - start.to_i,
+       size: k_to_g(size), id: id, system: system, path: @mp.path(diskname),
+       label: @label.lab(diskname) }]
   end
 end
 
+# Mounting the disk
 class DiskMounter
   def initialize(info, ignore)
-    @info, @ignore = info, ignore
+    @info = info
+    @ignore = ignore
   end
 
-  ASK_WITCH = "\e\[33mWhich disk do you want to mount (umount)?\e\[0m\n"
-  HINT = "\e\[33m\e\[1mPlease input a number.\e\[0m\n"
-  QUIT_HINT = "\e\[33m\e\[1mStop mounting (unmounting)...\e\[0m\n"
+  STYLE = { question: [:yellow, false],
+            hint: [:yellow, true],
+            label: [:default, true],
+            size: [:white, true],
+            path: [:cyan, true],
+            system: [:magenta, false],
+            cmd: [:cyan, false]
+  }
 
+  ASK_WITCH = 'Which disk do you want to mount (umount)?'
+  HINT = 'Please choose an index.'
+  QUIT_HINT = 'Stop mounting (unmounting)...'
   def ask
-    @keylist = [:empty]
-    infostr = pinfo
-    stat = loop do
-      puts ASK_WITCH + infostr
+    @index = 0
+    @list = deallist(@info.list) { |item| add_index(item) }
 
-      ch = $stdin.gets.chomp
-      break :quit if %w(q quit Q Quit).include?(ch)
+    plist = deallist(@list) { |item| showitem(item) }
 
-      ind = ch.to_i
-      break @current = @keylist[ind] if (1..@keylist.size - 1).include?(ind)
+    @list.flatten!
+    inds = @list.map { |x| x[:index] }
 
-      puts HINT
-    end
-
+    stat = loopask(plist, inds)
     return unless stat == :quit
-    puts QUIT_HINT
+
+    puts mark(QUIT_HINT, :hint)
     exit 1
   end
 
   def mount
     return unless @current
-    value = flat(@info)[@current]
-    value[:path] ? umount_act(value[:path]) : mount_act(@current, value)
+    disk = @list.find { |x| x[:index] == @current }
+    disk[:path] ? umount_act(disk[:path]) : mount_act(disk)
   end
 
   private
 
+  def loopask(plist, inds)
+    loop do
+      showlist(plist)
+
+      ch = $stdin.gets.chomp
+      break :quit if %w(q quit Q Quit).include?(ch)
+
+      ind = ch
+      break @current = ind if inds.include?(ind)
+
+      puts mark(HINT, :hint)
+    end
+  end
+
+  def showlist(plist)
+    puts [mark(ASK_WITCH, :question), plist.map(&:join).join("\n")].join("\n")
+  end
+
+  def showitem(item)
+    ["\t",
+     mark("#{item[:index]}. #{item[:label] || item[:device]}", :label), "\t",
+     mark(format('%.1f G', item[:size]), :size), "\t",
+     mark(item[:path], :path), ' ',
+     mark(item[:system], :system), "\n"].join
+  end
+
+  def mark(str, type = nil)
+    str = str.to_s.color(STYLE[type][0]) if STYLE[type]
+    str = str.bright if STYLE[type] && STYLE[type][1]
+    str
+  end
+
+  def deallist(list)
+    list.map { |items| items.map { |x| yield(x) }.compact }.reject(&:empty?)
+  end
+
+  def add_index(item)
+    return if ignore(item)
+    item.merge(index: (@index += 1).to_s)
+  end
+
   M_DIR = '~/mnt'
   USER = `echo $USER`.chomp
   M_OPTION = { iocharset: 'utf8', uid: USER, gid: USER, fmask: '133', \
-             dmask: '022' }
-  def mount_act(key, val)
-    command = 'sudo mount -o ' \
-      + M_OPTION.each.map { |o, v| "#{o}=#{v}" }.join(',') \
-      + " #{key} #{path = getpath(key, val)}"
+               dmask: '022' }
+  def mount_act(disk)
+    opts = M_OPTION.each.map { |o, v| "#{o}=#{v}" }.join(',')
+    command = "sudo mount -o #{opts} #{disk[:device]} #{path = getpath(disk)}"
+
     FileUtils.mkdir(path) unless File.exist?(path)
 
-    puts command
+    puts mark(command, :cmd)
     system(command)
   end
 
-  UNMOUNT_FAIL_ERR = "\e\[31m\e\[1mError: Unmount failed\e\[0m\n"
+  UNMOUNT_FAIL_ERR = 'Error: Unmount failed'.color(:red).bright
   def umount_act(path)
-    system("sudo umount #{path}")
+    command = "sudo umount #{path}"
+
+    puts mark(command, :cmd)
+    system(command)
     return(puts(UNMOUNT_FAIL_ERR)) if Dir["#{path}/{*,.*}"].size > 2
     system("rm -rf #{path}")
   end
 
-  def getpath(key, val)
-    File.expand_path("#{M_DIR}/#{val[:label] or key.sub(%r{/dev/}, '')}")
+  def getpath(disk)
+    label = disk[:label] || disk[:device].sub(%r{.+/([^/]+)?}, '\1')
+    File.expand_path("#{M_DIR}/#{label}")
   end
 
-  def flat(info)
-    Hash[info.map { |k, v| v[:start] ? [[k, v]] : v.to_a }.flatten(1)]
-  end
-
-  def pinfo(info = @info)
-    judge = ->(k, v) { v[:start] ? getline(k, v) : psubinfo(v) }
-    info.map { |k, v| "  \e\[37m#{k}\e\[0m\n" + judge.call(k, v) }.join("\n\n")
-  end
-
-  def psubinfo(info)
-    info.map { |k, v| getline(k, v) }.compact.join("\n")
-  end
-
-  def getline(key, val)
-    return if ignore(key, val)
-    ind = (@keylist << key).size - 1
-    "\t\e\[1m#{ind}. #{val[:label] || key}" + \
-    "\t\e\[37m#{format("%.1f G", val[:blocks])}" + \
-    "\t\e\[36m#{val[:path]}\e\[0m" + \
-    "\e\[35m\t#{val[:system] and "[#{val[:system]}]"}\e\[0m"
-  end
-
-  def ignore(key, val)
-    @ignore[:system].include?(val[:system]) or
-      @ignore[:path].include?(val[:path])
+  def ignore(item)
+    @ignore.map { |k, v| v.map { |x| x === item[k] } }.flatten
+      .reduce(false) { |a, e| a || e }
   end
 end
 
-IGNORE = { system: ['Linux LVM', "W95 Ext'd (LBA)"], path: ['/home', '/boot'] }
+IGNORE = { system: ['Linux LVM', "W95 Ext'd (LBA)"], path: ['/home', '/boot'],
+           device: [%r{/dev/mapper/.+}] }
 
-info = DiskInfo.new(`sudo fdisk -l`.each_line.to_a)
-mounter = DiskMounter.new(info.disk, IGNORE)
+info = DiskInfo.new(`sudo fdisk -l`)
+mounter = DiskMounter.new(info, IGNORE)
 mounter.ask
 mounter.mount
