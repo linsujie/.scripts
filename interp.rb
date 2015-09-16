@@ -1,4 +1,4 @@
-#!/home/linsj/bin/ruby
+#!/bin/env ruby
 # encoding: utf-8
 
 # The class to supply interpolation methods

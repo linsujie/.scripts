@@ -21,24 +21,19 @@ class Tree
     subtree
   end
 
-  def find(word = :val, val)
+  def find(word, val)
     return self if send(word) == val
     res = @children.each { |child| (c = child.find(word, val)) && (break c) }
     res unless res.is_a?(Array)
   end
 
-  def eachs(*arr)
-    yield(arr.map { |x| send(x) })
-    @children.each { |child| child.eachs(*arr) { |e| yield e } }
+  def each(*arr)
+    yield(arr.size == 1 ? send(arr[0]) : arr.map { |x| send(x) })
+    @children.each { |child| child.each(*arr) { |e| yield e } }
   end
 
-  def each(word = :val)
-    yield send(word)
-    @children.each { |child| child.each(word) { |e| yield e } }
-  end
-
-  def map!(word = :val, *app)
-    append = ->(w, a) { [*a].unshift(w).map(&:send) }
+  def map!(word, *app)
+    append = ->(w, a) { [*a].unshift(w).map { |k| send(k) } }
     send("#{word}=", yield(app.empty? ? send(word) : append.call(word, app)))
     @children.each { |child| child.map!(word, *app) { |e| yield e } }
   end

@@ -2,7 +2,7 @@
 # encoding : utf-8
 
 require 'escort'
-require '~/.scripts/DailyMethod.rb'
+require '~/.scripts/dailymethod.rb'
 
 class GetRange < ::Escort::ActionCommand::Base
   include DailyMethod
@@ -21,6 +21,9 @@ class GetRange < ::Escort::ActionCommand::Base
 end
 
 Escort::App.create do |app|
+  app.summary 'To get the range of a chains, ' \
+    'the files chain.txt and chain.paramNames are required'
+
   app.options do |opts|
     opts.opt :file_root, 'The file root of the chain',
       short: '-f', long: '--fileroot', type: :string, default: 'chains/test'
