@@ -1,0 +1,127 @@
+#!/bin/env ruby
+# encoding: utf-8
+require 'escort'
+
+# To read the data from a table file with title
+class ReadTable
+  attr_reader :content, :filename
+
+  def initialize(filename)
+    @filename = filename
+    @content = File.new(filename).each
+               .map { |l| l[0] == '#' ? readhead(l) : readline(l) }.compact
+  end
+
+  def readhead(line)
+    line.sub!(/^#/, '')
+    @title = line.split(' ').map(&:to_sym)
+    nil
+  end
+
+  COL_TO_F = %w(<E> Elo Eup y ystat_lo ystat_up ysyst_lo ysyst_up yerrtot_lo
+                yerrtot_up).map(&:to_sym)
+  FORMAT = { file_name: :basename, number_data: :to_i }
+           .merge(COL_TO_F.zip([:to_f] * COL_TO_F.size).to_h)
+  def basename(val)
+    File.basename(val)
+  end
+
+  def to_i(val)
+    val.to_i
+  end
+
+  def to_f(val)
+    val.to_f
+  end
+
+  def readline(line)
+    mark = '!' == line[0]
+    result = @title.zip(line.split(' ')).to_h.merge(mark: mark)
+    @title.each { |k| result[k] = send(FORMAT[k], result[k]) if FORMAT[k] }
+    result
+  end
+end
+
+# To read the data download from cosmicray database
+class ReadExps < ::Escort::ActionCommand::Base
+  def execute
+    @opts = command_options
+
+    readexpinfo
+    readdata
+    print
+  end
+
+  def print
+    outscr = @opts[:output] ? File.new(@opts[:output], 'w') : $stdout
+    outscr.puts @exps.map { |exp| exp_to_s(exp) }.compact
+
+    puts @exps.map { |exp| nongausian_info(exp) }.compact
+  end
+
+  def nongausian_info(exp)
+    return unless exp[:mark] && !exp[:nongausian].empty?
+    debug = @opts[:verbosity] == 'DEBUG'
+    detail = debug ? "\n" + exp[:nongausian].join("\n") : ''
+
+    "# #{exp[:exp_name]} possess nongausian points: " + \
+      exp[:nongausian].map { |pt| pt[:'<E>'] }.join(', ') + detail
+  end
+
+  def exp_to_s(exp)
+    return unless exp[:mark]
+    "# #{exp[:exp_name]}\n" + exp[:datas].map { |line| form(line) }.join("\n")
+  end
+
+  def form(line)
+    scale = line[:'<E>'] ** @opts[:index]
+
+    [line[:'<E>'], line[:y] * scale, line[:errtot] * scale]
+    .map! { |x| format(@opts[:format], x) }.join('  ')
+  end
+
+  def readdata
+    @exps.each { |exp| readexp(exp) }
+  end
+
+  def readexp(exp)
+    return unless exp[:mark]
+    exp[:datas] = ReadTable.new(exp[:file_name]).content
+    exp[:nongausian] = []
+    exp[:datas].each { |point| exp[:nongausian] << point unless errtot(point) }
+  end
+
+  def errtot(pt)
+    uperr = pt[:yerrtot_up]
+    loerr = pt[:yerrtot_lo]
+
+    return pt[:errtot] = uperr if loerr.zero? || uperr == loerr
+    return pt[:errtot] = loerr if uperr.zero?
+
+    pt[:errtot] = (uperr + loerr) / 2
+    false
+  end
+
+  def readexpinfo
+    @exps = ReadTable.new('data_exps.txt').content
+  end
+end
+
+Escort::App.create do |app|
+  app.summary 'Drag the data from cosmicray-database and combine them in to' \
+    ' one file.'
+  app.options do |opts|
+    opts.opt :output, 'The output filename, output to the screen if not' \
+      ' defined', short: '-o', long: '--output', type: :string
+    opts.opt :index, 'The power index to rescale the spectrum',
+      short: '-i', long: '--index', type: :float, default: 0.0
+    opts.opt :format, 'The format of output numbers',
+      short: '-f', long: '--format', type: :string, default: '%.5e'
+    opts.opt :tolerance, 'The tolerance to give nongaussian warning',
+      short: '-t', long: '--tolerance', type: :float, default: 0.005
+  end
+
+  app.action do |options, arguments|
+    ReadExps.new(options, arguments).execute
+  end
+end
