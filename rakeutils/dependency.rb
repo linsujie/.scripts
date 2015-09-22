@@ -1,14 +1,16 @@
 #!/home/linsj/bin/ruby
 
 class Depend
-  attr_reader :dirs, :lib, :inc, :lib_to_s, :inc_to_s
+  attr_reader :hash, :dirs, :lib, :inc, :lib_to_s, :inc_to_s
 
   def initialize(hash, order = nil)
     @dirs, @lib, @inc = [], [], []
+    @hash = hash
     append(hash, order)
   end
 
   def append(hash, order = nil)
+    @hash.merge!(hash)
     readhash(hash)
 
     sort(order)
