@@ -55,7 +55,7 @@ CmdBibBase = Struct.new(:bib) do
 
   def back_bibfile(bibname)
     bibname = File.expand_path(bibname)
-    FileUtils.mv(bibname, TMPFILE) unless bibname == TMPFILE
+    FileUtils.mv(bibname, @backup_bib) unless bibname == @backup_bib
   end
 
   def listdiag(comps = false, bgstrs = '')
@@ -311,9 +311,10 @@ class CmdBib < CmdBibBase
 
   public
 
-  def initialize(hght, wth, bib)
+  def initialize(hght, wth, bib, backup_bib)
     super(bib)
     @opt = [:scheight, :scwidth].zip([hght, wth]).to_h
+    @backup_bib = File.expand_path(backup_bib)
     @stat = :content
 
     @diag = Insmode.new('', [@opt[:scheight] / 3, @opt[:scwidth] / 20],
