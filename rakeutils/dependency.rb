@@ -1,5 +1,6 @@
 #!/home/linsj/bin/ruby
-
+# encoding: utf-8
+require 'rainbow/ext/string'
 class Depend
   attr_reader :hash, :dirs, :lib, :inc, :lib_to_s, :inc_to_s
 
@@ -45,8 +46,30 @@ class Depend
   end
 
   def record(path, libs)
+    libs.empty? ? record_empty(path) : record_libs(path, libs)
+  end
+
+  def record_empty(path)
+    add_to_list(@inc, "-I#{path}", 'include')
+  end
+
+  def record_libs(path, libs)
     @dirs << path
-    @lib << ["-L#{path}/lib", libs.map { |x| "-l#{x}" if unexist?(x) }.compact]
-    @inc << "-I#{path}/include"
+    lbs = ["-L#{path}/lib", libs.map { |x| "-l#{x}" if unexist?(x) }.compact]
+    add_to_list(@lib, lbs, 'library')
+    add_to_list(@inc, "-I#{path}/include", 'include')
+  end
+
+  EXCLUDELIST = %w(-I/include)
+  def add_to_list(list, term, kind)
+    return if EXCLUDELIST.include?(term)
+    list << term
+    path = term.is_a?(String) ? term : term[0]
+    test_path(path.sub(/^(-L|-I)/, ''), kind)
+  end
+
+  def test_path(path, info = nil)
+    sentence = "The #{info + ' ' if info}path #{path.bright} unexist"
+    raise sentence unless File.exist?(path)
   end
 end
