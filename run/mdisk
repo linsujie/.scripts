@@ -254,6 +254,7 @@ IGNORE = { system: ['Linux LVM', "W95 Ext'd (LBA)"], path: ['/home', '/boot'],
            device: [%r{/dev/mapper/.+}] }
 
 info = DiskInfo.new(`sudo fdisk -l`)
+p info
 mounter = DiskMounter.new(info, IGNORE)
 mounter.ask
 mounter.mount

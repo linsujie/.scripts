@@ -502,6 +502,7 @@ class Bibus
   end
 
   def writelogfile(filename, item)
+    FileUtils.touch(filename) unless File.exist?(filename)
     history = File.new(filename).lines.to_a << "#{Time.now} #{item}\n"
     history.shift if history.size >= 1000
 

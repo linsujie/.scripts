@@ -112,9 +112,11 @@ module CmdBibControl
     @list.setcol(visible)
   end
 
+  OPEN_LOG = File.expand_path('~/.opbib_history')
   def listhistory
-    identlist = File.new(File.expand_path('~/.opbib_history')).each
-                .map { |line| line.split(' ')[-1] }.reverse.uniq[0..30]
+    FileUtils.touch(OPEN_LOG) unless File.exist?(OPEN_LOG)
+    identlist ||= File.new(OPEN_LOG).each
+                  .map { |line| line.split(' ')[-1] }.reverse.uniq[0..30]
     @list.set(0, 0, listidents(identlist))
   end
 
