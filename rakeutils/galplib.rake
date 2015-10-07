@@ -8,7 +8,7 @@ deps = { "#{GALPDIRS[:galp]}" => %w(galprop skymap),
 }
 deps.merge!(EXTRA)
 
-order = %w(works galprop CCFits CLHEP cfitsio lins)
+order = %w(works galprop CCfits CLHEP cfitsio lins)
 order.insert(1, 'galpwrap') if GALPVERSION == :v55
 
 DEPEND = Depend.new(deps, order)
