@@ -14,14 +14,15 @@ module DailyMethod
     arr[-1].size == ncol ? arr.transpose : nil
   end
 
-  MP = 0.938272 # in unit of GEV
-  def rgn2ekn(rgn, z)
-    momentn = rgn * z
+  MP = 0.938272 # in unit of GeV
+  def rg2ekn(rgn, a, z)
+    momentn = rgn * z / a
     Math.sqrt(MP * MP + momentn * momentn) - MP
   end
 
-  def ekn2rgn(ekn, z)
-    Math.sqrt(ekn * ekn + 2 * ekn * MP) / z
+  def ekn2rg(ekn, a, z)
+    momentn = Math.sqrt(ekn * ekn + 2 * ekn * MP)
+    momentn * a / z
   end
 end
 
