@@ -3,7 +3,7 @@
 fname=$1
 relic=`echo $1 | grep -e '\.'zip$`
 if [[ $relic == '' ]]; then
-   /bin/dtrx $1
+   /bin/env dtrx $1
 else
   dirname=${fname:0:${#fname}-4}
   dir=`basename $dirname`

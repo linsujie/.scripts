@@ -108,7 +108,7 @@ module InsmodeBase
 
   MVHASH = { KEY_LEFT => :l, KEY_RIGHT => :r, KEY_UP => :u, KEY_DOWN => :d,
              KEY_HOME => :h, KEY_END => :e }
-  KEY_DELETE = 263
+  KEY_DELETE = [127, 263]
 
   def prefixdeal
     showstr(0) && showch
@@ -239,8 +239,8 @@ class Insmode
   def unfocused(ch)
     return move(MVHASH[ch]) if MVHASH.key?(ch)
 
+    delch if KEY_DELETE.include?(ch)
     case ch
-    when KEY_DELETE then delch
     when @chgline then addch("\n")
     when @chgst then @tabfocus = true
     end

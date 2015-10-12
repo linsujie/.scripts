@@ -15,8 +15,8 @@ module DailyMethod
   end
 
   MP = 0.938272 # in unit of GeV
-  def rg2ekn(rgn, a, z)
-    momentn = rgn * z / a
+  def rg2ekn(rg, a, z)
+    momentn = rg * z / a
     Math.sqrt(MP * MP + momentn * momentn) - MP
   end
 
