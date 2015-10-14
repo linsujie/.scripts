@@ -1,0 +1,10 @@
+#!/bin/bash
+
+if [ $1 == '--help' ]; then
+  echo "Usage:   pdftopng filename [page resolution cutting] outname"
+  echo Example: pdftopng test.pdf 3 300 200x100+150+30 out.png
+else
+  gs -dNumRenderingThreads=4 -dNOPAUSE -sDEVICE=png16m -dFirstPage=$2 -dLastPage=$2 -sOutputFile=tmp.png -dJPEGQ=100 -r$3 -q $1 -c quit
+  convert tmp.png -crop $4 $5
+  rm tmp.png
+fi
