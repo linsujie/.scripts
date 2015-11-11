@@ -1,0 +1,3 @@
+[submodule "rakeutils"]
+	path = rakeutils
+	url = gitssh:linsujie/rakeutils.git
