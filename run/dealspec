@@ -1,0 +1,127 @@
+#!/usr/bin/env ruby
+# encoding: utf-8
+
+require 'escort'
+require '~/.scripts/dailymethod.rb'
+class DealSpec < ::Escort::ActionCommand::Base
+  include DailyMethod
+  ERRINFO = { nofilename: 'Please input the filename',
+              fileunexist: 'The input file is unexist',
+              filewrong: 'The content of input file is unsuitable',
+              emptyfile: 'The input file is empty' }
+
+  def execute
+    @opt = global_options
+    raise ERRINFO[:nofilename] unless @opt[:filename]
+    raise ERRINFO[:fileunexist] unless File.exist?(@opt[:filename])
+
+    @opt[:oindex] ||= @opt[:rindex]
+
+    readspectrum
+
+    printspectrum
+  end
+
+  def printspectrum
+    info = @opt[:xout] == 'rigidity' ? @rigid : @ekin
+    yout = info[:y].map { |yaxis| rescale_vec(info[:x], yaxis, @opt[:oindex]) }
+
+    puts info[:head]
+    puts yout.unshift(info[:x]).transpose.map { |t| format_term(t) }
+  end
+
+  def format_term(t)
+    t.map { |x| format('%.6e', x) }.join('  ')
+  end
+
+  def readspectrum
+    filearr = File.new(@opt[:filename]).each.to_a
+
+    head = filearr.select { |l| /^#/ =~ l }
+    content = (filearr - head).reject(&:empty?)
+              .map { |l| l.split(' ').map!(&:to_f) }
+
+    checkarray(content)
+
+    @rigid = {}
+    @ekin = {}
+    readhead(head)
+    readarray(*content.transpose)
+  end
+
+  def readarray(xaxis, *ys)
+    send("assign_#{@opt[:xin]}", xaxis,
+        ys.map { |yaxis| rescale_vec(xaxis, yaxis, -@opt[:rindex]) })
+  end
+
+  def rescale_vec(vecx, vecy, index)
+    vecx.zip(vecy).map { |x, y| y * x**index }
+  end
+
+  def assign_rigidity(xaxis, ys)
+    @rigid[:x] = xaxis
+    @rigid[:y] = ys
+
+    @ekin[:x] = xaxis.map { |r| rg2ekn(r, @opt[:A], @opt[:Z]) }
+    @ekin[:y] = ys.map { |yaxis| flux_r2e(yaxis) }
+  end
+
+  def assign_ekin(xaxis, ys)
+    @ekin[:x] = xaxis
+    @ekin[:y] = ys 
+
+    @rigid[:x] = xaxis.map { |e| ekn2rg(e, @opt[:A], @opt[:Z]) }
+    @rigid[:y] = ys.map { |yaxis| flux_e2r(yaxis) }
+  end
+
+  def flux_r2e(yaxis)
+    yaxis.zip(@rigid[:x], @ekin[:x]).map { |phi, r, e| phi * drde(r, e) }
+  end
+
+  def flux_e2r(yaxis)
+    yaxis.zip(@rigid[:x], @ekin[:x]).map { |phi, r, e| phi / drde(r, e) }
+  end
+
+  def drde(rigidity, ekin)
+    (ekin + MP) * @opt[:A] * @opt[:A] / (@opt[:Z] * @opt[:Z] * rigidity)
+  end
+
+  def readhead(head)
+    @rigid[:head] = head.map { |l| l.gsub(/[eE]kin(\(GeV/n\))?/, 'Rigidity(GV)') }
+    @ekin[:head] = head.map { |l| l.gsub(/[rR]igidity(\(GV\))?/, 'Ekin(GeV/n)') }
+  end
+
+  def checkarray(arr)
+    raise ERRINFO[:emptyfile] if arr.empty?
+    raise ERRINFO[:filewrong] if arr.map(&:size).uniq.size != 1
+  end
+end
+
+Escort::App.create do |app|
+  app.options do |opts|
+    opts.opt :filename, "The input filename of spectrum",
+      short: '-f', long: '--filename', type: :string
+    opts.opt :rindex, "The rescaled index",
+      short: '-r', long: '--rindex', type: :float, default: 0.0
+    opts.opt :oindex, "The output rescale index (automaticaly equal to the rindex by default)",
+      short: :none, long: '--oindex', type: :float
+    opts.opt :xin, "The type of input xaxis (rigidity or Ekin per nuclei)",
+      short: '-i', long: '--xin', type: :string, default: 'rigidity'
+    opts.opt :xout, "The type of output xaxis",
+      short: '-o', long: '--xout', type: :string, default: 'ekin'
+    opts.opt :A, "The A number of nuclear",
+      short: '-A', long: '--A', type: :int, default: 1
+    opts.opt :Z, "The Z number of nuclear",
+      short: '-Z', long: '--Z', type: :int, default: 1
+    opts.opt :head, "With the head or not",
+      short: '-h', long: '--head', type: :boolean, default: true
+
+    [:xin, :xout].each do |key|
+      opts.validate(key, "must be 'rigidity' or 'ekin'") { |op| %w(rigidity ekin).include?(op) }
+    end
+  end
+
+  app.action do |options, arguments|
+    DealSpec.new(options, arguments).execute
+  end
+end
