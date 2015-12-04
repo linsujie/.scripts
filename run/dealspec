@@ -87,7 +87,7 @@ class DealSpec < ::Escort::ActionCommand::Base
   end
 
   def readhead(head)
-    @rigid[:head] = head.map { |l| l.gsub(/[eE]kin(\(GeV/n\))?/, 'Rigidity(GV)') }
+    @rigid[:head] = head.map { |l| l.gsub(%r{[eE]kin(\(GeV/n\))?}, 'Rigidity(GV)') }
     @ekin[:head] = head.map { |l| l.gsub(/[rR]igidity(\(GV\))?/, 'Ekin(GeV/n)') }
   end
 

@@ -1,0 +1,95 @@
+#!/bin/env ruby
+# encoding: utf-8
+require 'escort'
+
+# This class provide method to convert number from system to system
+class Converter < ::Escort::ActionCommand::Base
+  public
+
+  MapsLong = { letternum: (0..9).map { |x| x.to_s }.to_a + ('a'..'z').to_a,
+               fullchar: (33..126).map { |x| x.chr } }
+  MapsShort = { l: MapsLong[:letternum],
+                f: MapsLong[:fullchar] }
+  Maps = MapsLong.merge(MapsShort)
+
+  def execute
+    @opt = command_options
+
+    raise 'Please specify input' unless @opt[:input]
+    raise 'Please specify converting maps' unless @opt[:map]
+
+    @output = @opt[:type] == 'int' ? @opt[:input].to_i : @opt[:input].each_char.to_a
+
+    puts "The input information read as: #{@output}"
+
+    @opt[:map].split(',').each { |label| convert(label) }
+
+    puts "Result is: #{@output.is_a?(Array) ? @output.join : @output}"
+  end
+
+  private
+
+  def convert(label)
+    @map = Maps[label.to_sym]
+
+    case @opt[:type]
+    when 'string' then stringtoint
+    when 'int' then inttostring
+    end
+  end
+
+  ELEMENT_ERR = 'conv_char::the element to be coverted should be int or char'
+  BOUND_ERR = 'conv_char::the element is out of the range of chosen map'
+  def conv_char(element)
+    return @map[element] || raise(BOUND_ERR) if element.is_a?(Fixnum)
+
+    raise ELEMENT_ERR if !element.is_a?(String)
+    @map.index(element) || raise(BOUND_ERR)
+  end
+
+  def stringtoint
+    @opt[:type] = 'int'
+    @output = todemical(@output.map { |c| conv_char(c) }, @map.size)
+  end
+
+  def todemical(array, max)
+    array.reduce(0) { |a, e| a * max + e }
+  end
+
+  def inttostring
+    @opt[:type] = 'string'
+    @output = demicalto(@output, @map.size).map { |c| conv_char(c) }
+  end
+
+  def demicalto(num, max)
+    res = []
+    while num > 0
+      res << num % max
+      num /= max
+    end
+    res.reverse
+  end
+end
+
+Escort::App.create do |app|
+  app.summary 'Providing several maps between a string and a pure number'
+
+  app.options do |opts|
+    opts.opt :input, 'The input string (or number)',
+      short: '-i', long: '--input', type: :string
+    opts.opt :map, 'The choice of code map, you could specify several maps '\
+      'seperated with "," to realize a sequence of command', short: '-m',
+      long: '--map', type: :string
+    opts.opt :type, 'The type of input information',
+      short: '-t', long: '--type', type: :string, default: 'string'
+
+    opts.validate(:type, 'must be "string" or "int"') { |x| %w(string int).include?(x) }
+    opts.validate(:map, 'The map list is [l(etternum), f(ullchar)]') do |maps|
+      maps.split(',').each.reduce(true) { |a, e| a && %w(l letternum f fullchar).include?(e) }
+    end
+  end
+
+  app.action do |options, arguments|
+    Converter.new(options, arguments).execute
+  end
+end
