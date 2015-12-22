@@ -31,7 +31,7 @@ class LineStylePackage
     @iter = -1
     @vechash = vechash
     DEFAULT_HASH.each { |k, v| @vechash[k] = v unless @vechash.key?(k) }
-    @vechash[:lc].map! { |x| "rgb '##{x}'" }
+    @vechash[:lc] = @vechash[:lc].map { |x| "rgb '##{x}'" }
 
     tcw = %w(t c w).permutation.map(&:join)
     @counter = Hash[tcw.map { |x| [x, RectangleCounter.new(tcwsize(x))] }]

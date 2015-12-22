@@ -7,9 +7,9 @@ require 'gnuplot'
 module PlotUtils
   def readdata(fname, mode = :insert)
     result = inputfile(fname).map { |l| l.split(' ').map(&:to_f) }
-    return result if :plain == mode
+    return result.transpose if :plain == mode
     size = result.map(&:size).max
-    result.map { |l| l.empty? ? [nil] * size : l }
+    result.map { |l| l.empty? ? [nil] * size : l }.transpose
   end
 
   def get_ds(array, ls, title = '')
