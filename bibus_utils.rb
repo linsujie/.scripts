@@ -3,6 +3,7 @@
 
 require 'sqlite3'
 require 'fileutils'
+require 'pathname'
 require_relative 'foldlist.rb'
 
 # This class is some utils to database of bibus
@@ -122,8 +123,13 @@ module BaseBibUtils
   def genlink(dirname, ref_id)
     ident = @db.select(:bibref, :identifier, :id, ref_id).flatten[0]
 
-    targetpath = filepath(ident)
-    system("ln -s '#{targetpath}' '#{labelpath(targetpath, dirname)}'")
+    target = filepath(ident)
+    origin = labelpath(target, dirname)
+    system("ln -s '#{relative_name(origin, target)}' '#{origin}'")
+  end
+
+  def relative_name(origin, target)
+    Pathname(target).relative_path_from(Pathname(origin).dirname)
   end
 
   def labelpath(targetpath, dirname)
@@ -161,9 +167,9 @@ module BaseBibUtils
     ident = @db.select(:bibref, :identifier, :id, bibid)[0][0]
     target = filepath(ident)
 
-    dirname = label_name(keyid, keyname)
+    origin = labelpath(target, label_name(keyid, keyname))
 
-    [labelpath(target, dirname), target]
+    [origin, relative_name(origin, target)]
   end
 
   def link_item(keyid, bibid)
