@@ -93,10 +93,46 @@ module BaseBibUtils
       .gsub("\n\n", "\n\n#{mark}  ")
   end
 
+  def label_name(id, keyname)
+    "#{@opts[:labelsdir]}/#{id}_#{to_file_name(keyname)}"
+  end
+
+  def to_file_name(name)
+    name.gsub(/( |:)/, '_')
+  end
+
   def genbiblist
     l = @db.select(:bibrefkey, %w(key_id parent key_name), :user,
                    @opts[:username])
     @biblist = FoldList.new(l, @opts[:ancestor])
+  end
+
+  def genlabels
+    @biblist.to_list.map { |id, _, keyname| genlinks(id, keyname) }
+  end
+
+  def genlinks(id, keyname)
+    dirname = label_name(id, keyname)
+    FileUtils.mkdir_p(dirname)
+
+    @db.select(:bibreflink, :ref_id, :key_id, id).flatten
+      .each { |ref_id| genlink(dirname, ref_id) }
+  end
+
+  def genlink(dirname, ref_id)
+    ident = @db.select(:bibref, :identifier, :id, ref_id).flatten[0]
+
+    targetpath = filepath(ident)
+    system("ln -s '#{targetpath}' '#{labelpath(targetpath, dirname)}'")
+  end
+
+  def labelpath(targetpath, dirname)
+    "#{dirname}/#{to_file_name(File.basename(targetpath))}"
+  end
+
+  def filepath(ident, postfix = 'pdf')
+    prefix = "#{@opts[:refdir]}/#{ident}"
+    Dir.glob("#{prefix}.*")[0] || "#{prefix}.#{postfix}"
   end
 
   def keys(bibid)
@@ -109,15 +145,29 @@ module BaseBibUtils
     keys(bibid).reduce([]) { |a, e| a << gkeyn.call(e) }.sort.join(', ') + ' '
   end
 
-  def link_item(keyid, bibid)
-    ins = ->(k, b) { @db.insert(:bibreflink, %w(key_id ref_id), [k, b]) }
-    del = ->(k, b) { @db.delete(:bibreflink, %w(key_id ref_id), [k, b]) }
-    linkexist?(keyid, bibid) ? del.call(keyid, bibid) : ins.call(keyid, bibid)
+  def inslink(keyid, bibid)
+    @db.insert(:bibreflink, %w(key_id ref_id), [keyid, bibid])
+
+    system("ln -s #{link_name(keyid, bibid).reverse.join(' ')}")
   end
 
-  def unlink_item(keyid, bibid)
-    return :unexist unless linkexist?(keyid, bibid)
-    @db.delete(:bibreflink, %w(ref_id key_id), [bibid, keyid])
+  def dellink(keyid, bibid)
+    @db.delete(:bibreflink, %w(key_id ref_id), [keyid, bibid])
+    FileUtils.rm(link_name(keyid, bibid)[0])
+  end
+
+  def link_name(keyid, bibid)
+    keyname = @db.select(:bibrefkey, :key_name, :key_id, keyid)[0][0]
+    ident = @db.select(:bibref, :identifier, :id, bibid)[0][0]
+    target = filepath(ident)
+
+    dirname = label_name(keyid, keyname)
+
+    [labelpath(target, dirname), target]
+  end
+
+  def link_item(keyid, bibid)
+    linkexist?(keyid, bibid) ? dellink(keyid, bibid) : inslink(keyid, bibid)
   end
 
   private
@@ -169,11 +219,17 @@ module BibusKey
 
     @db.delete(:bibreflink, :key_id, item.id)
     @db.delete(:bibrefkey, :key_id, item.id)
+    FileUtils.rm_r(label_name(item.id, item.keyname))
+
     adopt(item.children.map(&:id), item.parent)
   end
 
   def modkey(keyid, keyname)
     @db.update(:bibrefkey, { key_name: keyname }, key_id: keyid)
+
+    origin_label = Dir.glob(label_name(keyid, '*'))[0]
+    FileUtils.mv(origin_label, label_name(keyid, keyname)) if origin_label
+
     genbiblist
   end
 
@@ -196,6 +252,8 @@ module BibusKey
 
     @db.insert(:bibrefkey, [:user, :key_id, :parent, :key_name],
                [@opts[:username], newid, parent, keyname])
+    FileUtils.mkdir_p(label_name(newid, keyname))
+
     genbiblist
   end
 end
@@ -384,6 +442,7 @@ class Bibus
     @opts = options
     DEFOPTS.each_key { |k| @opts[k] = DEFOPTS[k] unless @opts.key?(k) }
     @opts[:refdir] = File.expand_path(@opts[:refdir])
+    @opts[:labelsdir] = File.expand_path("#{@opts[:refdir]}/labels")
 
     nulldb = !File.exist?(File.expand_path(@opts[:datafile]))
     @db = DbUtils.new(File.expand_path(@opts[:datafile]))
@@ -391,6 +450,8 @@ class Bibus
 
     gen_colist
     genbiblist
+
+    genlabels unless File.exist?(@opts[:labelsdir])
   end
 
   def search(words)
@@ -418,7 +479,7 @@ class Bibus
     @db.insert(:bibref, keylist, valist)
     @db.insert(:file, %w(ref_id path), [id, filepath(@bibitems[:identifier])])
 
-    link_item(@biblist.tree.find(:keyname, 'newtmp').id, id)
+    inslink(@biblist.tree.find(:keyname, 'newtmp').id, id)
   end
 
   def debib(bibid, rm_sign = 'no')
@@ -426,14 +487,19 @@ class Bibus
     y?(rm_sign) && File.exist?(filepath(bibkey)) &&
       FileUtils.rm(filepath(bibkey))
 
+    keys(bibid).each { |keyid| dellink(keyid, bibid) }
     @db.delete(:bibref, :id, bibid)
-    @db.delete(:bibreflink, :ref_id, bibid)
     @db.delete(:file, :ref_id, bibid)
   end
 
   def modbib(id, tmpfile = '~/Documents/tmp.bib')
     readbib(tmpfile)
+
+    keyids = keys(id)
+
+    keyids.each { |keyid| dellink(keyid, id) }
     moditem(id)
+    keyids.each { |keyid| inslink(keyid, id) }
   end
 
   def moditem(id)
@@ -469,11 +535,6 @@ class Bibus
   end
 
   private
-
-  def filepath(ident, postfix = 'pdf')
-    prefix = "#{@opts[:refdir]}/#{ident}"
-    Dir.glob("#{prefix}.*")[0] || "#{prefix}.#{postfix}"
-  end
 
   def mod_fname(id, old, new)
     return if old == new

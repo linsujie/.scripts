@@ -39,6 +39,10 @@ class FoldList
     @list.transpose
   end
 
+  def to_list
+    @tree.to_a { |v, g| [v[:id], v[:parent], v[:keyname]] }
+  end
+
   def size
     to_a[0].map(&:size).max + 3
   end

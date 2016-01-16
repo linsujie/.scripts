@@ -17,7 +17,7 @@ class Booster
   end
 
   def boost(vector)
-    (@BMatrix * Matrix[vector].transpose).transpose.to_a
+    (@BMatrix * Matrix[vector].transpose).transpose.to_a[0]
   end
 
   private
