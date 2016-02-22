@@ -1,0 +1,3 @@
+[submodule "bibcmd"]
+	path = bibcmd
+	url = https://github.com/linsujie/bibcmd.git
