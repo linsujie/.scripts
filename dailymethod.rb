@@ -39,6 +39,16 @@ class Array
     map { |x| x.is_a?(Array) ? x.level_number + 1 : 1 }.max || 0
   end
 
+  def upper_bound(x)
+    return if x >= self[-1] || x < self[0]
+
+    l, u = 0, size - 1
+    while(u - l > 1)
+      mid = (u + l) / 2
+      self[mid] > x ? u = mid : l = mid
+    end
+  end
+
   def average
     reduce(0.0, &:+) / size
   end
