@@ -43,14 +43,28 @@ class Array
     return :up_over if x >= self[-1]
     return :low_over if x < self[0]
 
+    dichotomy(x)[1]
+  end
+
+  def lower_bound(x)
+    return :up_over if x >= self[-1]
+    return :low_over if x < self[0]
+
+    dichotomy(x)[0]
+  end
+
+  def average
+    reduce(0.0, &:+) / size
+  end
+
+  private
+
+  def dichotomy(x)
     l, u = 0, size - 1
     while(u - l > 1)
       mid = (u + l) / 2
       self[mid] > x ? u = mid : l = mid
     end
-  end
-
-  def average
-    reduce(0.0, &:+) / size
+    [l, u]
   end
 end
