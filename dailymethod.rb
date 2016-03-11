@@ -40,7 +40,8 @@ class Array
   end
 
   def upper_bound(x)
-    return if x >= self[-1] || x < self[0]
+    return :up_over if x >= self[-1]
+    return :low_over if x < self[0]
 
     l, u = 0, size - 1
     while(u - l > 1)
