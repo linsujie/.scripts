@@ -3,11 +3,12 @@
 
 # A Thread Pool to limit the max number of threads
 class Pool
-  def initialize(size)
+  def initialize(size, sleep_count = nil)
     @size = size
     @jobs = Queue.new
     @pool = Array.new(@size) do |i|
       Thread.new do
+        sleep(sleep_count * i) if sleep_count
         Thread.current[:id] = i
         catch(:exit) do
           loop do

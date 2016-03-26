@@ -3,11 +3,12 @@
 
 require 'matrix'
 
+# boosting the four dimension vector in format [t, x, y, z]
 class Booster
   def initialize(velocity)
     raise 'Booster::please input an available velocity' unless check(velocity)
 
-    @beta = Math.sqrt(velocity.reduce(0) { |a, e| a + e * e })
+    @beta = Math.sqrt(velocity[0] * velocity[0] + velocity[1] * velocity[1] + velocity[2] * velocity[2])
     @n = velocity.map { |x| x / @beta }
     @gamma = 1 / Math.sqrt(1 - @beta * @beta)
 
