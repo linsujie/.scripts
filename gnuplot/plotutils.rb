@@ -12,10 +12,10 @@ module PlotUtils
     result.map { |l| l.empty? ? [nil] * size : l }.transpose
   end
 
-  def get_ds(array, ls, title = '')
+  def get_ds(array, ls, type = 'lines', title = '')
     Gnuplot::DataSet.new(array) do |ds|
       ls = [:lt, :lc, :lw].map { |x| "#{x} #{ls[x]} " if ls[x] }.join(' ')
-      ds.with = 'lines ' + ls
+      ds.with = [type, ls].join(' ')
       ds.title = "#{title}"
     end
   end
