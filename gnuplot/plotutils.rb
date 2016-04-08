@@ -7,6 +7,7 @@ require 'gnuplot'
 module PlotUtils
   def readdata(fname, mode = :insert)
     result = inputfile(fname).map { |l| l.split(' ').map(&:to_f) }
+    return result if :keep == mode
     return result.transpose if :plain == mode
     size = result.map(&:size).max
     result.map { |l| l.empty? ? [nil] * size : l }.transpose

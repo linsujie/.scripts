@@ -52,7 +52,7 @@ class Contour
   end
 
   def readcontour(contname)
-    readdata(contname, :plain).reduce({}) { |a, e| insertterm(a, e) }
+    readdata(contname, :keep).reduce({}) { |a, e| insertterm(a, e) }
   end
 
   def gen_contour(cont_val, arr, contname)
