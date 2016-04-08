@@ -1,6 +1,9 @@
 #!/usr/env ruby
 # encoding: utf-8
 
+require 'json'
+require_relative 'table'
+
 # The module provide the daily used method
 module DailyMethod
   def readfile(file, ncol = 2, quickmode = false)
@@ -57,6 +60,18 @@ class Array
     reduce(0.0, &:+) / size
   end
 
+  def split_by
+    each_cons(2).inject([[first]]) do |a, (i, j)|
+      a.push([]) if yield(i, j)
+      a.last.push j
+      a
+    end
+  end
+
+  def to_range
+    split_by {|i, j| j - i != 1 }.map{ |a| a.first..a.last }
+  end
+
   private
 
   def dichotomy(x)
@@ -66,5 +81,93 @@ class Array
       self[mid] > x ? u = mid : l = mid
     end
     [l, u]
+  end
+end
+
+module JSON
+  LATEX_TAIL = "\\hline\n\\end{tabular}"
+
+  private_class_method def self.latex_head(col_size)
+    "\\begin{tabular}{#{'c' * col_size}}\n\\hline"
+  end
+
+  private_class_method def self.latex_table_line(table, iline)
+    line = []
+    cline = []
+    (0..table.col_size - 1).each do |icol|
+      cline << (icol + 1) if table[iline, icol][:size] > 1
+
+      next unless table.main_ele?(iline, icol)
+      obj = table[iline, icol]
+      line << (obj[:size] == 1 ? obj[:string] : "\\multicolumn{#{obj[:size]}}{c}{#{obj[:string]}}")
+    end
+
+    eoh = table.string(iline, 0).nil? && !table.string(iline + 1, 0).nil?
+    cline = (1..table.col_size).to_a if eoh
+
+    cstr = cline.to_range.map { |r| "\\cline{#{r.to_s.sub('..', '-')}}" }.join
+
+    line.join(' & ') + '\\\\' + (cline.empty? ? '' : cstr)
+  end
+
+  def self.latex_table(json)
+    table = to_table(json)
+
+    isplit = (0..table.line_size - 1).to_a.reverse
+      .find { |il| table.max_width(il) > 1 }
+
+    (0..table.col_size - 1).select { |ic| table.main_ele?(isplit, ic) }[2..-1]
+      .reverse.each { |ic| table.insert_col(ic) }
+
+    [latex_head(table.col_size),
+     (0..table.line_size - 1).map { |i| latex_table_line(table, i) },
+     LATEX_TAIL].join("\n")
+  end
+
+  private_class_method def self.to_table(json)
+    array = table_array(json).transpose
+
+    table = Table.new
+
+    array[0..-2].each_with_index do |line, iline|
+      line.each_with_index do |ele, icol|
+        ele == :to_fuse ? table.combine_left(iline, icol) : table[iline, icol] = ele
+      end
+    end
+
+    lhead = table.line_size
+    lkeys = array[-1].reduce([]) { |a, e| a | e.keys }
+
+    lkeys.each_with_index do |key, il|
+      array[-1].each_with_index do |val, icol|
+        table[lhead + il, icol] = val[key] || '----'
+      end
+    end
+
+    table.unshift_col([nil] * lhead + lkeys)
+
+    table
+  end
+
+  def self.table_array(json)
+    array = []
+    json_to_table(array, json, [])
+
+    table_size = array.map(&:size).max
+    array.each { |l| (table_size - l.size).times { l.insert(-2, nil) } }
+    array
+  end
+
+  private_class_method def self.json_to_table(array, json, prekey)
+    return array << (prekey << json) unless json[json.keys[0]].is_a?(Hash)
+
+    first_key = true
+
+    json.each do |k, subjson|
+      pre = first_key ? (prekey + [k]) : (prekey.map { :to_fuse } + [k])
+      json_to_table(array, subjson, pre)
+
+      first_key = false
+    end
   end
 end
