@@ -163,7 +163,7 @@ module JSON
 
     first_key = true
 
-    json.each do |k, subjson|
+    json.to_a.sort_by { |k, _| k }.each do |k, subjson|
       pre = first_key ? (prekey + [k]) : (prekey.map { :to_fuse } + [k])
       json_to_table(array, subjson, pre)
 
