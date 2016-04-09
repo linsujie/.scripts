@@ -124,7 +124,7 @@ module JSON
      LATEX_TAIL].join("\n")
   end
 
-  private_class_method def self.to_table(json)
+  def self.to_table(json)
     array = table_array(json).transpose
 
     table = Table.new
@@ -151,21 +151,21 @@ module JSON
 
   def self.table_array(json)
     array = []
-    json_to_table(array, json, [])
+    json_to_array(array, json, [])
 
     table_size = array.map(&:size).max
     array.each { |l| (table_size - l.size).times { l.insert(-2, nil) } }
     array
   end
 
-  private_class_method def self.json_to_table(array, json, prekey)
+  private_class_method def self.json_to_array(array, json, prekey)
     return array << (prekey << json) unless json[json.keys[0]].is_a?(Hash)
 
     first_key = true
 
     json.each do |k, subjson|
       pre = first_key ? (prekey + [k]) : (prekey.map { :to_fuse } + [k])
-      json_to_table(array, subjson, pre)
+      json_to_array(array, subjson, pre)
 
       first_key = false
     end

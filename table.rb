@@ -118,7 +118,37 @@ class Table
     self[iline, icol][:vshift] == 0
   end
 
+  def print(ele_width = 12, splitor = ' ')
+    puts (0..@line_size - 1).map { |il| line_str(il, ele_width, splitor) }
+      .join("\n")
+  end
+
   private
+
+  def line_str(iline, ele_width, splitor = ' ')
+    (0..@col_size - 1).map { |ic| element_str(iline, ic, ele_width, splitor) }
+    .compact.join(splitor)
+  end
+
+  def element_str(iline, icol, ele_width, splitor)
+    return unless center?(iline, icol)
+
+    str = vcenter?(iline, icol) ? string(iline, icol).to_s : ''
+
+    ele_number = self[iline, icol][:size]
+    width = ele_width * ele_number + (ele_number - 1) * splitor.size
+    str[0..width - 1].center(width)
+  end
+
+  def center?(iline, icol)
+    ele = self[iline, icol]
+    ele[:shift] == ele[:size] / 2
+  end
+
+  def vcenter?(iline, icol)
+    ele = self[iline, icol]
+    ele[:vshift] == ele[:vsize] / 2
+  end
 
   def refresh_large_element(iline, icol)
     e = self[iline, icol]
