@@ -1,0 +1,12 @@
+#!/bin/env ruby
+# encoding: utf-8
+require_relative '../dailymethod.rb'
+
+USAGE = "Usage: print_json filename [width_of_element splitor]"
+exit puts(USAGE) unless ARGV[0] || File.exist?(ARGV[0])
+
+json_str = File.new(ARGV[0]).read
+width = (ARGV[1] || 8).to_i
+splitor = ARGV[2] || ' '
+
+JSON.to_table(JSON.restore(json_str)).print(width, splitor)
