@@ -9,4 +9,7 @@ json_str = File.new(ARGV[0]).read
 width = (ARGV[1] || 8).to_i
 splitor = ARGV[2] || ' '
 
-JSON.to_table(JSON.restore(json_str)).print(width, splitor)
+table = JSON.to_table(JSON.restore(json_str))
+
+table.transpose! if ARGV[3] == 't'
+table.print(width, splitor)

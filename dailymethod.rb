@@ -60,18 +60,6 @@ class Array
     reduce(0.0, &:+) / size
   end
 
-  def split_by
-    each_cons(2).inject([[first]]) do |a, (i, j)|
-      a.push([]) if yield(i, j)
-      a.last.push j
-      a
-    end
-  end
-
-  def to_range
-    split_by {|i, j| j - i != 1 }.map{ |a| a.first..a.last }
-  end
-
   private
 
   def dichotomy(x)
@@ -85,43 +73,20 @@ class Array
 end
 
 module JSON
-  LATEX_TAIL = "\\hline\n\\end{tabular}"
-
-  private_class_method def self.latex_head(col_size)
-    "\\begin{tabular}{#{'c' * col_size}}\n\\hline"
-  end
-
-  private_class_method def self.latex_table_line(table, iline)
-    line = []
-    cline = []
-    (0..table.col_size - 1).each do |icol|
-      cline << (icol + 1) if table[iline, icol][:size] > 1
-
-      next unless table.main_ele?(iline, icol)
-      obj = table[iline, icol]
-      line << (obj[:size] == 1 ? obj[:string] : "\\multicolumn{#{obj[:size]}}{c}{#{obj[:string]}}")
-    end
-
-    eoh = table.string(iline, 0).nil? && !table.string(iline + 1, 0).nil?
-    cline = (1..table.col_size).to_a if eoh
-
-    cstr = cline.to_range.map { |r| "\\cline{#{r.to_s.sub('..', '-')}}" }.join
-
-    line.join(' & ') + '\\\\' + (cline.empty? ? '' : cstr)
-  end
-
-  def self.latex_table(json)
+  def self.latex_table(json, ele_width = 20, transpose = false)
     table = to_table(json)
+
+    table.transpose! if transpose
 
     isplit = (0..table.line_size - 1).to_a.reverse
       .find { |il| table.max_width(il) > 1 }
 
-    (0..table.col_size - 1).select { |ic| table.main_ele?(isplit, ic) }[2..-1]
+    if isplit
+      (0..table.col_size - 1).select { |ic| table.main_ele?(isplit, ic) }[2..-1]
       .reverse.each { |ic| table.insert_col(ic) }
+    end
 
-    [latex_head(table.col_size),
-     (0..table.line_size - 1).map { |i| latex_table_line(table, i) },
-     LATEX_TAIL].join("\n")
+    table.latex_str(ele_width)
   end
 
   def self.to_table(json)
