@@ -63,7 +63,7 @@ class Contour
         plot.cntrparam("level discrete #{cont_val.join(',')}")
         plot.table(%Q("#{contname}"))
 
-        plot.data = [Gnuplot::DataSet.new(arr) { |ds| ds.with = "lines" }]
+        plot.data = [Gnuplot::DataSet.new(arr.transpose) { |ds| ds.using = '1:2:3' }]
       end
     end
     readcontour(contname)
