@@ -1,0 +1,37 @@
+#!/bin/env bash
+
+inname=$1
+outname=$2
+
+if [[ $outname == '' ]]; then
+  echo This command is used to convert txt data to TGraph and TGraphErrors.
+  echo Usage::root-convert infile_name outfile_name [ dataname = infile_name  datatitle = infile_name ]
+  echo or root-convert infile_dir outfile_name
+  exit 1
+fi
+
+if [ -d $inname ]; then
+  for i in `ls $inname`
+  do
+    ${BASH_SOURCE} $inname/$i $outname
+  done
+fi
+
+if [ -f $inname ]; then
+  colnum=`head $inname | awk 'BEGIN{ a2 = 0; a3 = 0; } { if(NF == 2) a2 += 1; else if(NF == 3) a3 += 1; } END{ print (a2 > a3 ? 2 : 3) }'`
+
+  inbase=`basename $inname .dat`
+  dataname=`[[ $3 == '' ]] && echo $inbase || echo $3`
+  datatitle=`[[ $4 == '' ]] && echo $inbase || echo $4`
+
+  if [[ $datatitle == $inbase ]]
+  then
+    tline=`head $inname -n 1`
+
+    [[ ${tline:0:1} == '#' ]] && datatitle=${tline:1}
+  fi
+
+  rootfile=${BASH_SOURCE}.C
+
+  root -b -q ${rootfile}+"(\"$inname\", \"$outname\", \"$dataname\", \"$datatitle\", $colnum)"
+fi
