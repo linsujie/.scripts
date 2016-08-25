@@ -14,5 +14,5 @@ if [[ $1 == 0 ]]; then
   fi
 else
   #This is to open the nethack in a right way
-  nethack
+  $DIR/nethack
 fi
