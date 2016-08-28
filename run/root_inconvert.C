@@ -14,11 +14,13 @@ using namespace std;
 bool store_TGraphErrors(ofstream &out, TGraphErrors *gr) {
   for (Int_t i = 0; i < gr->GetN(); i++)
     out << gr->GetX()[i] << " " << gr->GetY()[i] << " " << gr->GetEY()[i] << endl;
+  return true;
 }
 
 bool store_TGraph(ofstream &out, TGraph *gr) {
   for (Int_t i = 0; i < gr->GetN(); i++)
     out << gr->GetX()[i] << " " << gr->GetY()[i] << endl;
+  return true;
 }
 
 int root_inconvert(const TString &inname, const TString &outdir) {

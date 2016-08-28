@@ -12,6 +12,6 @@ inbase=`basename $inname .root`
 outdir=`[[ $2 == '' ]] && echo $inbase || echo $2`
 mkdir -p $outdir
 
-rootfile=${BASH_SOURCE}.C
+rootfile=`echo ${BASH_SOURCE}.C | sed "s/-/_/g"`
 
 root -b -q ${rootfile}+"(\"$inname\", \"$outdir\")"
