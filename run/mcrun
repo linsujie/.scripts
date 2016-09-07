@@ -195,7 +195,7 @@ class MCRun < MCRunIni
     k = ->(pid) { "kill -9 #{pid} && echo kill #{pid}" }
     `ps c -p #{@cur_task[h][@option[:tail]].join(' ')}`.each_line
       .map { |l| l.split(' ') }[1..-1]
-      .each { |l| system(k.call(l[0])) if "cosraymc#{h}" == l[4] }
+      .each { |l| system(k.call(l[0])) if "cosraymc#{h}".start_with?(l[4]) }
 
     @cur_task[h][@option[:tail]] = nil
     store_task(h) if @option[:choice][1]

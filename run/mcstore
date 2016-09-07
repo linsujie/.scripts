@@ -27,11 +27,11 @@ def copy_task(tail, paths)
   `sed -i "#{subs}" #{dir}/inifile/distgalp*.ini`
 end
 
-$yard, $postfix = Time.now - (ARGV[0] || 1).to_f * 3600, ARGV[1] || ''
+$time_lenght, $postfix = Time.now - (ARGV[0] || 1).to_f * 3600, ARGV[1] || ''
 $rectime = Time.now.strftime('%m.%d-%H:%M')
 paths = %w(chains . out out/distlog plot_data inifile)
 
-tails = Dir.foreach('chains').select { |f| File.mtime('chains/' + f) > $yard }
+tails = Dir.foreach('chains').select { |f| File.mtime('chains/' + f) > $time_lenght }
   .map { |fname| /galp(?<t>[0-9a-zA-Z]+)(?:_\d)?.txt/ =~ fname && t }
   .uniq.reject { |x| !x }
 
