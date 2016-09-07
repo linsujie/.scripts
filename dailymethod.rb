@@ -2,7 +2,27 @@
 # encoding: utf-8
 
 require 'json'
+require 'rainbow/ext/string'
+require 'timeout'
 require_relative 'table'
+
+# The sys function as an extention of system, with timeout support
+def sys(str, log = nil)
+  puts [str, log && log.color(:yellow)].compact.join(' > ')
+
+  cmd = [str, log].compact.join(' > ')
+
+  pid = Process.spawn(cmd)
+  begin
+    Timeout::timeout(TIMELIMIIT) do
+      Process.wait(pid)
+    end
+  rescue Timeout::Error
+    puts "command out of time, re-Run".bright
+    system("pkill -TERM -P #{pid}")
+    sys(str, log)
+  end
+end
 
 # The module provide the daily used method
 module DailyMethod

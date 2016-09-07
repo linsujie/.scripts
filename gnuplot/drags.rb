@@ -27,9 +27,9 @@ class Drags
 
   def record
     FileUtils.mkdir_p @outpath
-    File.new("#{@outpath}/line", 'w').puts @line.transpose.to_page
-    File.new("#{@outpath}/linedash", 'w').puts @linedash.transpose.to_page
-    File.new("#{@outpath}/ts", 'w').puts @ts.transpose.to_page
+    File.new("#{@outpath}/line", 'w').puts @line.transpose.to_page if @line
+    File.new("#{@outpath}/linedash", 'w').puts @linedash.transpose.to_page if @linedash
+    File.new("#{@outpath}/ts", 'w').puts @ts.transpose.to_page if @ts
   end
 
   private
