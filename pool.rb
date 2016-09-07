@@ -1,9 +1,12 @@
 #!/bin/env ruby
 # encoding: utf-8
 
+require_relative 'cpu_counter'
+
 # A Thread Pool to limit the max number of threads
 class Pool
-  def initialize(size, sleep_count = nil)
+  def initialize(size, sleep_count = nil, cpu_limit = 90)
+    @cpu = CpuCounter.new
     @size = size
     @jobs = Queue.new
     @pool = Array.new(@size) do |i|
@@ -13,6 +16,7 @@ class Pool
         catch(:exit) do
           loop do
             job, args = @jobs.pop
+            sleep(20) while @cpu.user > cpu_limit
             job.call(*args)
           end
         end
