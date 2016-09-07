@@ -1,0 +1,84 @@
+#!/bin/env ruby
+# encoding: utf-8
+
+CLOSE_R = 147.1 #Gm
+FAR_R = 152.1 #Gm
+E = (FAR_R - CLOSE_R) / (FAR_R + CLOSE_R)
+EP = (CLOSE_R * FAR_R * (1 - E**2))**0.5
+
+def r_theta(theta)
+  EP / (1 - E * Math::cos(theta))
+end
+
+def t_theta(th)
+  impart = Math::sqrt(1 - E**2)
+
+  E * Math::sin(th) / (E**2 - 1) / (E * Math::cos(th) - 1) \
+    + 2 * Math::atan((1 + E) * Math::tan(th / 2) / impart) / impart**3
+end
+
+def tmax
+  t_theta(Math::PI - 1e-7)
+end
+
+def find_x(yvalue, xrange, precise = 1e-6)
+  yrange = xrange.map { |x| yield(x) }
+
+  yerr = (yrange[1] - yrange[0]) / (yrange[1] + yrange[0])
+  yerr = yerr > 0 ? yerr : -yerr
+  return xrange if yerr < precise
+
+  xmid = (xrange[1] + xrange[0]) / 2
+  ymid = yield(xmid)
+
+
+  return [ymid, ymid] if ymid == yvalue
+
+  low_segment = (ymid - yvalue) * (ymid - yrange[0]) > 0
+  newrange = low_segment ? [xrange[0], xmid] : [xmid, xrange[1]]
+
+  find_x(yvalue, newrange, precise) { |x| yield(x) }
+end
+
+def theta_t_inhalf(t)
+  if t < 0 || t > 0.5
+    puts "theta_t_inhalf::This function only accept t ~ [0, 0.5] as input parameter"
+    exit 2
+  end
+
+  t = t / 0.5 * tmax
+
+  theta_range = find_x(t, [0, Math::PI - 1e-7]) { |x| t_theta(x) }
+  (theta_range[0] + theta_range[1]) / 2
+end
+
+def theta_t(t)
+  if !t.is_a?(Float) && !t.is_a?(Fixnum)
+    puts "theta_t::This function only accept t as a number"
+    exit 2
+  end
+
+  n = (t / 0.5).to_i
+
+  even_theta = ->() { n * Math::PI + theta_t_inhalf(t % 0.5) }
+  odd_theta = ->() { (n + 1) * Math::PI - theta_t_inhalf(0.5 - t % 0.5) }
+  n % 2 == 0 ? even_theta.call : odd_theta.call
+end
+
+if ARGV.empty?
+  puts <<-eof
+Usage:orbit t
+   t is the time since the farest point, in unit of year
+  eof
+  exit 1
+end
+
+t = ARGV[0].to_f
+theta = theta_t(t)
+r = r_theta(theta)
+
+puts <<-eof
+time: #{t} year
+theta: #{theta} rad
+R: #{r} Gm
+eof

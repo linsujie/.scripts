@@ -1,5 +1,4 @@
-#!/usr/local/bin/ruby
-#!/home/linsj/bin/ruby
+#!/bin/env ruby
 # encoding: utf-8
 
 require '~/ruby_cpp/Chisq/Chisq'

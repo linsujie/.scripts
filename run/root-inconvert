@@ -1,0 +1,17 @@
+#!/bin/env bash
+
+inname=$1
+if [[ $inname == '' ]]
+then
+  echo This command is used to convert TGraph and TGraphErrors to txt dat.
+  echo Usage::root-inconvert infile_name [ outdir = infile_name_base ]
+  exit 1
+fi
+
+inbase=`basename $inname .root`
+outdir=`[[ $2 == '' ]] && echo $inbase || echo $2`
+mkdir -p $outdir
+
+rootfile=`echo ${BASH_SOURCE}.C | sed "s/-/_/g"`
+
+root -b -q ${rootfile}+"(\"$inname\", \"$outdir\")"
