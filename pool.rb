@@ -5,6 +5,8 @@ require_relative 'cpu_counter'
 
 # A Thread Pool to limit the max number of threads
 class Pool
+  attr_reader :pool, :jobs
+
   def initialize(size, sleep_count = nil, cpu_limit = 90)
     @cpu = CpuCounter.new
     @size = size

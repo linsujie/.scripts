@@ -6,7 +6,7 @@ require 'fileutils'
 class CpuCounter
   LOGFILE = File.expand_path("~/.cpu_counter.log")
   def initialize
-    ObjectSpace.define_finalizer(self, proc { FileUtils.rm(LOGFILE); system("pkill -TERM -P #{@pid}") if @pid })
+    ObjectSpace.define_finalizer(self, proc { system("pkill -TERM -P #{@pid}") if @pid; FileUtils.rm(LOGFILE) })
   end
 
   def user

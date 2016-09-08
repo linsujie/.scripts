@@ -5,6 +5,7 @@
 
 #include "TString.h"
 #include "TFile.h"
+#include "TAxis.h"
 
 #include "TGraph.h"
 #include "TGraphErrors.h"
@@ -12,12 +13,14 @@
 using namespace std;
 
 bool store_TGraphErrors(ofstream &out, TGraphErrors *gr) {
+  out << "# \"" << gr->GetXaxis()->GetTitle() << "\"\t\"" << gr->GetYaxis()->GetTitle() << "\"\t\"error\"" << endl;
   for (Int_t i = 0; i < gr->GetN(); i++)
     out << gr->GetX()[i] << " " << gr->GetY()[i] << " " << gr->GetEY()[i] << endl;
   return true;
 }
 
 bool store_TGraph(ofstream &out, TGraph *gr) {
+  out << "# \"" << gr->GetXaxis()->GetTitle() << "\"\t\"" << gr->GetYaxis()->GetTitle() << "\"" << endl;
   for (Int_t i = 0; i < gr->GetN(); i++)
     out << gr->GetX()[i] << " " << gr->GetY()[i] << endl;
   return true;

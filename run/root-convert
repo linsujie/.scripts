@@ -31,7 +31,19 @@ if [ -f $inname ]; then
     [[ ${tline:0:1} == '#' ]] && datatitle=${tline:1}
   fi
 
+  uline=`head $inname -n 2 | tail -n 1`
+  if [[ ${uline:0:1} == '#' ]]
+  then
+    unitx=`echo $uline | sed "s/^# \"\([^\"]*\)\"\s\+\"\([^\"]*\)\"\(\s\+\"[^\"]*\"\)\?$/\1/g"`
+    unity=`echo $uline | sed "s/^# \"\([^\"]*\)\"\s\+\"\([^\"]*\)\"\(\s\+\"[^\"]*\"\)\?$/\2/g"`
+    if [[ ${unitx:0:1} == '#' ]]
+    then
+      unitx=''
+      unity=''
+    fi
+  fi
+
   rootfile=`echo ${BASH_SOURCE}.C | sed "s/-/_/g"`
 
-  root -b -q ${rootfile}+"(\"$inname\", \"$outname\", \"$dataname\", \"$datatitle\", $colnum)"
+  root -b -q ${rootfile}+"(\"$inname\", \"$outname\", \"$dataname\", \"$datatitle\", \"$unitx\", \"$unity\", $colnum)"
 fi
