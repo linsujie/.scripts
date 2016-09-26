@@ -17,6 +17,8 @@ class ScanExcludeLine
     return unless @opt[:command] && @opt[:xvec] && @opt[:axisname] && @opt[:axisname][1]
     FileUtils.mkdir_p(@opt[:datadir])
     @opt[:xvec].each { |x| scan_x(x) }
+
+    raise 'the input xvec is empty' if @opt[:xvec].empty?
   end
 
   def print(i = nil)

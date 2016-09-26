@@ -14,7 +14,7 @@ def sys(str, log = nil)
 
   pid = Process.spawn(cmd)
   begin
-    Timeout::timeout(TIMELIMIIT) do
+    Timeout::timeout(TIMELIMIT) do
       Process.wait(pid)
     end
   rescue Timeout::Error

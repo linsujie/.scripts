@@ -1,0 +1,13 @@
+#!/bin/env bash
+
+if [[ $3 == '' ]]; then
+  echo "This command is used to simply plot a distribution, the integral result of the distribution is set to be 1 by default"
+  echo "Usage:plot_dist infile icol nbin outname = \"temp.eps\" rescale_factor = 1"
+  exit 1
+fi
+
+outname=`[[ $4 == '' ]] && echo '' || echo , \"$4\"`
+rescale=`[[ $5 == '' ]] && echo '' || echo , $5`
+
+rootfile=`echo ${BASH_SOURCE}.C | sed "s/-/_/g"`
+root -b -q ${rootfile}+"(\"$1\", $2, $3${outname}${rescale})"
