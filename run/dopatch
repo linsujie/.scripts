@@ -1,0 +1,95 @@
+#!/bin/env ruby
+# encoding: utf-8
+
+require 'json'
+require 'fileutils'
+
+LOGNAME = 'patch.log'
+
+def helpinfo
+  puts <<-eof
+This command is used to adopt the patch safely, with a log file produced
+  Usage:dopatch xxxx.patch
+  eof
+  exit
+end
+
+def errinfo(str)
+  puts str
+  exit
+end
+
+def depended_patch(info, target, patchfile)
+  index = info[target] && info[target].index(patchfile)
+  return unless index && index != info[target].size - 1
+  [target, info[target][index + 1..-1]]
+end
+
+def ask_reverse(dep)
+  puts ["Those patchs should be reversed before this patch:",
+        dep.map { |t, pfs| "\tFor file #{t}:\n\t\t#{pfs.join("\t")}\n" },
+        "Do you want to continue?(y/n)"].join("\n")
+  exit unless $stdin.gets.chomp == 'y'
+end
+
+def insert_vec(dependency, v)
+  dependency[v[0]] ||= []
+  dependency[v[0]] << v[1..-1]
+  dependency[v[0]].flatten!.uniq!
+  insert_vec(dependency, v[1..-1]) unless v.size == 1
+end
+
+def read_dependency(dependency, out)
+  key, _ = dependency.find { |_, v| v.empty? }
+  out.unshift(key)
+  dependency.reject! { |k| k == key }
+  dependency.keys.each { |k| dependency[k].reject! { |v| v == key } }
+  !dependency.empty?
+end
+
+def merge_array(vecs)
+  dependency = {}
+  vecs.each { |v| insert_vec(dependency, v) }
+  result = []
+  loop do
+    read_dependency(dependency, result) || break
+  end
+
+  result
+end
+
+def targetfile(fname)
+  File.new(fname).each.to_a.select { |l| l.start_with?('---') }
+  .map { |l| l.sub(%r{^---\s+([\w/.-]+)\s+[\d\s:.+-]+$}, '\1') }
+end
+
+def deal(info, fname)
+  puts "Dealing #{fname}"
+  tryinfo = `patch -p0 --dry-run -t < #{fname}`
+  errinfo("Error occur in #{fname}") if tryinfo =~ /FAILED/
+
+  reversed = tryinfo =~ /Reversed/
+  puts "\t#{reversed ? 'Depatching' : 'Patching'} #{fname}"
+  `patch -p0 #{reversed ? '-R' : ''} < #{fname}`
+
+  targetfile(fname).each do |k|
+    info[k] ||= []
+    reversed ? info[k].delete(fname) : info[k].push(fname)
+    info[k].uniq!
+  end
+end
+
+helpinfo if ARGV.empty? || %w(--help -h).include?(ARGV[0])
+errinfo("file #{ARGV[0]} unexist! do nothing") unless File.exist?(ARGV[0])
+
+info = File.exist?(LOGNAME) ? JSON.parse(File.new(LOGNAME).read) : {}
+
+dep = targetfile(ARGV[0]).map { |t| depended_patch(info, t, ARGV[0]) }.compact
+ask_reverse(dep) unless dep.empty?
+
+patchfiles = merge_array(dep.transpose[1] || []).unshift(ARGV[0]).compact
+
+patchfiles.reverse.each { |f| deal(info, f) }
+
+info.reject! { |_, v| v.empty? }
+File.new(LOGNAME, 'w').puts JSON.pretty_generate(info)
