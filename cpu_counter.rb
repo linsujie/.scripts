@@ -5,31 +5,40 @@ require 'fileutils'
 
 module CpuCounter
   LOGFILE = File.expand_path("~/.cpu_counter.log")
+  LOCKFILE = File.expand_path("~/.cpu_counter_lock")
 
   def user
-    start_mpstat unless checkfile(LOGFILE)
+    file = get_lock
+    start_mpstat unless checklog
+    file.flock(File::LOCK_UN)
 
     `tail -n 1 #{LOGFILE}`.split(' ')[-9].to_f
   end
 
-  def checkfile(file)
+  def checklog
     File.exist?(LOGFILE) && small_enough?(LOGFILE) &&
-      (Time.now - File.ctime(file)) < 120
+      (Time.now - File.ctime(LOGFILE)) < 120
+  end
+
+  def get_lock
+    file = File.new(LOCKFILE, 'w')
+    file.flock(File::LOCK_EX)
+    file
   end
 
   def start_mpstat
-    ids = running_id(cmd)
-    system('killall mpstat') unless ids.empty?
+    ids = running_id
+    system("kill #{ids.join(' ')}") unless ids.empty?
 
-    Process.spawn(cmd)
+    system(cmd + " > #{LOGFILE} &")
     sleep(6)
   end
 
   def cmd
-    "mpstat 5 > #{LOGFILE}"
+    'mpstat 5'
   end
 
-  def running_id(cmd)
+  def running_id
     result = `ps x | grep "#{cmd}" | grep -v grep`
     result.each_line.map { |l| l.split(' ')[0] }
   end
