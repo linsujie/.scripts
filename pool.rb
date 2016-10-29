@@ -3,12 +3,13 @@
 
 require_relative 'cpu_counter'
 
+include CpuCounter
+
 # A Thread Pool to limit the max number of threads
 class Pool
   attr_reader :pool, :jobs
 
   def initialize(size, sleep_count = nil, cpu_limit = 90)
-    @cpu = CpuCounter.new
     @size = size
     @jobs = Queue.new
     @pool = Array.new(@size) do |i|
@@ -18,7 +19,7 @@ class Pool
         catch(:exit) do
           loop do
             job, args = @jobs.pop
-            sleep(20) while @cpu.user > cpu_limit
+            sleep(20) while CpuCounter::user > cpu_limit
             job.call(*args)
           end
         end
