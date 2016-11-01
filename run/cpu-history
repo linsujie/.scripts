@@ -1,0 +1,18 @@
+#!/usr/bin/env ruby
+# encoding: utf-8
+
+if (ARGV.empty?)
+  puts 'Usage:cpu-history sample_frequency(in hour)'
+  exit
+end
+
+def dealtime(str)
+  /(?<hour>\d+).?+(?<min>\d+).?+(?<sec>\d+)/ =~ str
+  format('%.3g', hour.to_f + min.to_f / 60 + sec.to_f / 3600)
+end
+
+FREQUENCY = (ARGV[0].to_f * 3600).to_i / 5 # The sample frequency in hour
+
+puts File.new('/home/linsj/.cpu_counter.log').each.to_a[3..-1]
+         .each_slice(FREQUENCY).map { |t| t[0].split(' ') }
+         .map { |l| [dealtime(l[0]), l[2]].join(' ') }
