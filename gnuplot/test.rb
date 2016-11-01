@@ -99,7 +99,7 @@ class TestGnuplotUtils < Test::Unit::TestCase
     testdat = 'testdata/read_test.dat'
     arr = [[1.1, 2.3], [1.2, 3.3], [1.3, 4.3], [2.0, 3.4], [3.0, 3.3],
            [3.0, 1.0], [5.0, 2.3], [6.0, 0.3]]
-    assert_equal(arr, readdata(testdat))
+    assert_equal(arr, readdata(testdat, :keep))
 
     hash = { ' first' => [['1.1', '1.2', '1.3'], ['2.3', '3.3', '4.3']], 
              ' second' => [['2', '3'], ['3.4', '3.3']],

@@ -103,14 +103,14 @@ class MapData
   end
 
   def readarrayfile(files)
-    content = readdata(files[0])
+    content = readdata(files[0], :keep)
     x, y = files[1..2].map { |fname| readaxis(fname) }
 
     readarray([content, x, y])
   end
 
   def readaxis(fname)
-    dat = readdata(fname)
+    dat = readdata(fname, :keep)
     dat.size == 1 ? dat.flatten : dat.transpose[0]
   end
 
@@ -130,7 +130,7 @@ class MapData
   end
 
   def readcolsfile(file)
-    @cols = readdata(file).map { |t| t.empty? ? [nil, nil, nil] : t }.transpose
+    @cols = readdata(file, :keep).map { |t| t.empty? ? [nil, nil, nil] : t }.transpose
     readcols
   end
 
