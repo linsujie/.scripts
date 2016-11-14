@@ -5,7 +5,7 @@ require 'json'
 class ScanExcludeLine
   DEFAULT_OPT = { command: nil, cl: 0.95, datadir: 'scan_data',
                   xvec: nil, axisname: %w(mchi sv), pflag: false, precision: 0.05,
-                  replace: false
+                  replace: false, ylow: 0.0, yup: 1.0, ygap: 1e40, search_step: 10, bound_value: 1e7
   }
   def initialize(opt)
     @opt = opt
@@ -14,7 +14,7 @@ class ScanExcludeLine
   end
 
   def scan
-    return unless @opt[:command] && @opt[:xvec] && @opt[:axisname] && @opt[:axisname][1]
+    raise 'ScanExcludeLine::Configure incorrect exit' unless @opt[:command] && @opt[:xvec] && @opt[:axisname] && @opt[:axisname][1]
     FileUtils.mkdir_p(@opt[:datadir])
     @opt[:xvec].each { |x| scan_x(x) }
 
@@ -72,18 +72,46 @@ class ScanExcludeLine
   end
 
   def scan_x(x)
-    return unless @opt[:replace] || !File.exist?(dataname(x))
+    if File.exist?(dataname(x)) && !@opt[:replace]
+      puts "ScanExcludeLine::File #{dataname(x)} exist. skip #{x} !"
+      return
+    end
 
     @result = { x => {} }
-    low = 0
-    chi2_zero = run(x, low)
-    up = search_for_up(x, chi2_zero)
+    up = search_for_up(x)
+    low = search_for_low(x, up)
 
     ybest = brent_minimization(low, up) { |v| run(x, v) }
 
     brent_minimization(low, up) { |v| (run(x, v) - ybest.transpose[1].min - @opt[:dchi2])**2 }
 
     store_result
+  end
+
+  def search_for_up(x)
+    yup = @opt[:yup]
+    yup *= @opt[:search_step] while(run(x, yup, true) && run(x, yup, true) < @opt[:bound_value])
+    while((!run(x, yup, true) || run(x, yup, true) > @opt[:bound_value]))
+      yup /= @opt[:search_step]
+      raise 'ScanExcludeLine::search_for_up:: no up bound found in the whole range' if yup.zero?
+    end
+
+    yup
+  end
+
+  def search_for_low(x, yup)
+    ylow = @opt[:ylow]
+    raise 'ScanExcludeLine::search_for_low::Error::ylow set to be higher than yup' if ylow > yup
+
+    ylow = ylow_next(yup) while(!run(x, ylow, true) || run(x, ylow, true) > @opt[:bound_value])
+
+    raise 'ScanExcludeLine::search_for_low::Error::ylow set to be higher than yup' if ylow > yup
+    ylow
+  end
+
+  def ylow_next(yup)
+    return yup / @opt[:ygap] if ylow.zero?
+    ylow * @opt[:search_step]
   end
 
   def dataname(x)
@@ -158,20 +186,18 @@ class ScanExcludeLine
     arr.index(arr.min_by { |_, fx| fx })
   end
 
-  def search_for_up(x, chi2_zero)
-    raise 'chi2_zero is too large' if chi2_zero > 1e10
-    yup = 1.0
-    yup *= 10 while(run(x, yup) && run(x, yup) <= chi2_zero + 1)
-    yup /= 10 while(!run(x, yup) || run(x, yup) > 1e7)
-    yup
-  end
+  def run(x, y, force = false)
+    cmd_result = nil
+    if !(@result[x] && @result[x][y])
+      cmd_result = `#{[@opt[:command], x, y].join(' ')}`.split("\n")[-1]
+      @result[x].store(y, JSON.parse(cmd_result))
+      puts [x, y, @result[x][y]['chi2']].join(' ') if @opt[:pflag]
+    end
 
-  def run(x, y)
-    return @result[x][y]['chi2'] if @result[x] && @result[x][y]
-
-    cmd_result = `#{[@opt[:command], x, y].join(' ')}`.split("\n")[-1]
-    @result[x].store(y, JSON.parse(cmd_result))
-    puts [x, y, @result[x][y]['chi2']].join(' ') if @opt[:pflag]
+    if (!force && !@result[x][y]['chi2'])
+      raise "ScanExcludeLine::command #{[@opt[:command], x, y].join(' ')}"\
+            "                 get nil result #{cmd_result}, please check"
+    end
     @result[x][y]['chi2']
   end
 end
