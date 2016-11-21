@@ -19,6 +19,11 @@ class Runner
     raise "The col #{vname} is not found in the result" unless @result[x][vname]
     [x, @credit ? (@result[x][vname] - @credit)**2 : @result[x][vname]]
   end
+
+  def min
+    item = @result.to_a.min_by { |_, v| v['chi2'] }
+    { 'xaxis' => item[0] }.merge(item[1])
+  end
 end
 
 module Minimization
