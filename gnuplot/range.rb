@@ -20,7 +20,7 @@ class Range
   def input(arr)
     arr.map! { |term| term.map!(&:to_f) }
     intp = Interp.new(arr[0], arr[1])
-    ytmp = @x.map { |x| intp.linask(x) }
+    ytmp = @x.map { |x| intp.lnask(x) }
     inputy(ytmp)
   end
 

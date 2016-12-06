@@ -125,7 +125,7 @@ module JSON
 
     lkeys.each_with_index do |key, il|
       array[-1].each_with_index do |val, icol|
-        table[lhead + il, icol] = val[key] || '----'
+        table[lhead + il, icol] = val[key] || '---'
       end
     end
 
@@ -148,7 +148,7 @@ module JSON
 
     first_key = true
 
-    json.to_a.sort_by { |k, _| k }.each do |k, subjson|
+    json.to_a.each do |k, subjson|
       pre = first_key ? (prekey + [k]) : (prekey.map { :to_fuse } + [k])
       json_to_array(array, subjson, pre)
 
