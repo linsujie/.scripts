@@ -1,86 +1,199 @@
 #!/bin/env ruby
 # encoding:utf-8
 
-def dealline(line)
-  dealsap = ->(str) { str =~ /^\s*\++\s*$/ ? "\r\n#{str}\r\n" : str }
-  /(?<lin>.+)\r\n/ =~ line ? dealsap.call(lin + ' ') : "\r\n\r\n"
+require 'escort'
+require 'rainbow/ext/string'
+
+class String
+  def begin_with?(str)
+    strip.start_with?(str)
+  end
 end
 
-# The class to format the texfile, there is two format:
-#      sentence: putting each sentence each line
-#      paragraph: putting all the sentence in one paragraph in one line
+# The class to read and write tex file in a standard format
+# All the content is stored in a array of hashs, each hash is a single
+# sentence with its status: [txt|annotate|gap|environment].
 class TeXFile
-  attr_reader :paper
+  attr_reader :content
 
-  def initialize(filename, type)
-    @filename = filename
-    @curline = ''
-    @paper = []
-    file = File.new(filename)
-    file.map { |l| l.sub(/\r?\n$/, '') }.each { |line| addline(line) }
-
-    splitsentence if type == :s
+  def initialize
+    @content = []
+    @status = []
+    @inbrace = nil
   end
 
-  def print(filename = @filename)
-    File.new(filename, 'w').puts(@paper)
-  end
+  def readline(str)
+    dealstatus(str)
+    return if @status.empty?
 
-  private
+    return addgap if str =~ /^$/
 
-  def splitsentence
-    @paper.map! { |para| split(para) }.flatten!
-  end
+    @annotates ||= []
+    sentence, annotate = sentence_splitor(str)
 
-  SPLIT_BAN = %w(i.e. fig. Fig. pic. Pic. Tab. tab. Table. table. eq. Eq. Ref. e.g.)
-  def split(para)
-    return para unless para =~ /^\s*\w/
-
-    lines = para.gsub('. ', ".\n").split("\n")
-
-    result = lines.each_with_object(['']) do |l, a|
-      SPLIT_BAN.include?(a[-1].split(' ')[-1]) ? joinline(a, l) : a << l
+    if @status[-1] == :command_begin
+      @status[-1] = :command
+      changeline
     end
 
-    result[1..-1]
+    if @status[-1] == :txt || @status[-1] == :command
+      sentence.split(/[ ]/).each { |w| word_recording(w) }
+    else
+      add_evironment_line(sentence)
+    end
+
+    @annotates << annotate unless annotate.empty?
   end
 
-  def lastword(line)
-    line.split(' ')[-1]
+  def add_evironment_line(str)
+    changeline
+    @content[@content_index][0] << str.chomp
   end
 
-  def addline(line)
-    @lastline = @curline
-    @curline = line
-    nextline ? @paper << @curline : joinline(@paper, @curline)
+  def sentence_splitor(str)
+    %r{(?<sentence>.*?)(?<annotate>(?<!\\)%.*)} =~ str
+    annotate ? [sentence, annotate] : [str, '']
   end
 
-  def is_word?(word)
-    case word
-    when /^[\w,.]+[.,)]*$/ then :word
-    when /^\$.*\$[.,)]*$/ then :expression
-    when /^\\(ref|cite|cref){.*}[.,)]*$/ then :command
+  def word_recording(w)
+    changeline if @content.empty? || ![:txt, :command].include?(@content[-1][1])
+    addword(w)
+    changeline if eol?(w)
+  end
+
+  def addword(w)
+    return if w.empty? || !@content_index
+
+    space = @content[@content_index][0].empty? ? '' : ' '
+    @content[@content_index][0] << (space + w.strip)
+  end
+
+  def changeline
+    if @content_index && @content[-1][1] != :txt
+      @annotates.each { |a| a.begin_with?('%%%%') ? @content << [a, :annotate, ''] : addword(a) }
+    else
+      @annotates.each { |a| @content << [a, :annotate, ''] }
+    end
+
+    @annotates.clear
+    @content << ['', @status[-1], @status.clone]
+
+    revind = @content.transpose[1].reverse.find_index { |i| i != :gap }
+    @content_index = (revind && @content.size - 1 - revind)
+  end
+
+  NOT_END = %w(i.e. fig. Fig. pic. Pic. Tab. tab. Table. table. eq. Eq. Ref. e.g. P. R. Sec. section. Section.)
+  def eol?(w)
+    return false if NOT_END.include?(w.chomp)
+    w.chomp.end_with?('.')
+  end
+
+  def addgap
+    return if @content[-1][1] == :gap
+    if @content[-1] && @content[-1][0].empty?
+      @content[-1] = ['', :gap, '']
+    else
+      @content << ['', :gap, '']
     end
   end
 
-  def nextline
-    is_word?(@lastline.split(' ')[-1]) && is_word?(@curline.split(' ')[0]) and
-      return false
-
-    true
+  def print(file, type)
+    outfile = File.new(file, 'w')
+    outfile.puts to_s(type.to_sym)
+    #puts @content.map { |c, s, s1| "#{c.chomp} #{s1.to_s.color(:white)}" }
+    outfile.close
   end
 
-  def joinline(paper, curline)
-    paper[-1] = paper[-1].sub(/\s*$/, ' ') + curline.sub(/^\s+/, '')
+  def to_s(type = :sentence)
+    return @content.map { |c, _| c.chomp }.join("\n") if type == :sentence
+
+    lines = ['']
+    @content.each do |c, s|
+      if ![:txt, :command].include?(s)
+        lines[-1].empty? ? lines[-1] << c : lines << c
+        lines << ''
+        next
+      end
+
+      lines << '' if :command == s && !lines[-1].empty?
+      append_line(lines, c)
+    end
+
+    lines
   end
 
+  WIDTH = 80
+  def append_line(arr, line)
+    words = arr[-1].split(' ') + line.split(' ')
+
+    line.split(' ').each do |w|
+      if arr[-1].size + w.size <= WIDTH
+        arr[-1] << " #{w}"
+      else
+        arr << " #{w}"
+      end
+    end
+  end
+
+  def count_brace(str)
+    @inbrace += str.count('{')
+    @inbrace -= str.count('}')
+  end
+
+  CMDLIST = %w(caption title author abstract affiliation)
+  def dealstatus(str)
+    @status.pop if @status[-1].to_s =~ /\w+_end/
+    @status.pop if @status[-1] == :command && @inbrace == 0
+
+    case true
+    when str.begin_with?('\documentclass') then @status << :environment
+    when str.begin_with?('\begin{document}')
+      @status.pop
+      @status << :txt
+    when !(str =~ %r[(\\end{(abstract|acknowledgments)|\\begin{(abstract|acknowledgments))]).nil?
+      @status << :environment_end
+    when str.begin_with?('\end')
+      @status[-1] = "#{@status[-1]}_end".to_sym
+    when str.begin_with?('\begin{')
+      @status << :environment
+    when !(str =~ %r[\\(caption|title|author|abstract|affiliation){]).nil? #CMDLIST.reduce(false) { |a, e| a || str.begin_with?("\\#{e}{") }
+      @status << :command_begin
+      @inbrace = 0
+      count_brace(str)
+    when @status[-1] == :command && @inbrace > 0
+      count_brace(str)
+    end
+  end
 end
 
-HELPINFO = "Usage: texformat texfilename [(s)entence|(p)aragraph]"
-raise IOError, HELPINFO unless File.exist?(ARGV[0])
+class DealTex < ::Escort::ActionCommand::Base
+  def execute
+    raise 'No input file found' unless command_options[:infile]
+    command_options[:outfile] ||= command_options[:infile]
 
-type = ARGV[1]
+    tex = TeXFile.new
+    infile = File.new(command_options[:infile])
+    infile.each.to_a.each { |l| tex.readline(l) }
+    infile.close
 
-file = TeXFile.new(ARGV[0], (ARGV[1] || 's').to_sym)
+    tex.print(command_options[:outfile], command_options[:type])
+  end
+end
 
-file.print
+Escort::App.create do |app|
+  app.summary 'This script is used to convert the texformat to two kinds of standard form'
+
+  app.options do |opts|
+    opts.opt :infile, 'Input file', short: '-i', long: '--in-file', type: :string
+    opts.opt :outfile, 'Output file it would be the same as Input file by default',
+      short: '-o', long: '--out-file', type: :string
+    opts.opt :type, 'The type of output file', short: '-t', long: '--type',
+      type: :string, default: 'sentence'
+
+    opts.validate(:type, 'must be "sentence" or "paragraph"') { |o| %w(sentence paragraph).include?(o) }
+  end
+
+  app.action do |options, arguments|
+    DealTex.new(options, arguments).execute
+  end
+end
