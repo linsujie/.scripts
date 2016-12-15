@@ -108,6 +108,7 @@ class TeXFile
     return @content.map { |c, _| c.chomp }.join("\n") if type == :sentence
 
     lines = ['']
+    last_s = nil
     @content.each do |c, s|
       if ![:txt, :command].include?(s)
         lines[-1].empty? ? lines[-1] << c : lines << c
@@ -115,8 +116,10 @@ class TeXFile
         next
       end
 
-      lines << '' if :command == s && !lines[-1].empty?
+      lines << '' if last_s != s && !lines[-1].empty?
       append_line(lines, c)
+
+      last_s = s
     end
 
     lines
