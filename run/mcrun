@@ -1,7 +1,8 @@
-#!/home/linsj/bin/ruby
+#!/bin/env ruby
 # encoding: utf-8
 
 require 'open4'
+require 'fileutils'
 
 # The class to describe the current task.
 class TaskList
@@ -174,6 +175,7 @@ class MCRun < MCRunIni
   private
 
   def getdist
+    FileUtils.mkdir_p('out/distlog')
     @option[:head].each do |h|
       system("./getdist inifile/distgalp#{h}.ini" + \
              "| tee out/distlog/#{h}#{@time}")
