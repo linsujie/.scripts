@@ -37,7 +37,7 @@ class TeXFile
     end
 
     if @status[-1] == :txt || @status[-1] == :command
-      sentence.split(/[ ]/).each { |w| word_recording(w) }
+      ([''] + sentence.split(/[ ]/) + ['']).each_cons(3) { |lw, w, nw| word_recording(lw, w, nw) }
     else
       add_evironment_line(sentence)
     end
@@ -55,10 +55,10 @@ class TeXFile
     annotate ? [sentence, annotate] : [str, '']
   end
 
-  def word_recording(w)
-    changeline if @content.empty? || ![:txt, :command].include?(@content[-1][1])
+  def word_recording(lw, w, nw)
+    changeline if @content.empty? || @status[-1] != @content[-1][1]
     addword(w)
-    changeline if eol?(w)
+    changeline if eol?(lw, w, nw)
   end
 
   def addword(w)
@@ -70,9 +70,9 @@ class TeXFile
 
   def changeline
     if @content_index && @content[-1][1] != :txt
-      @annotates.each { |a| a.begin_with?('%%%%') ? @content << [a, :annotate, ''] : addword(a) }
+      @annotates.each { |a| a.begin_with?('%%%%') ? @content << [a, :annotate, ''] : @content[@content_index][0] << a }
     else
-      @annotates.each { |a| @content << [a, :annotate, ''] }
+      @annotates.each { |a| @content.insert(-2, [a, :annotate, '']) }
     end
 
     @annotates.clear
@@ -82,9 +82,15 @@ class TeXFile
     @content_index = (revind && @content.size - 1 - revind)
   end
 
-  NOT_END = %w(i.e. fig. Fig. pic. Pic. Tab. tab. Table. table. eq. Eq. Ref. e.g. P. R. Sec. section. Section.)
-  def eol?(w)
-    return false if NOT_END.include?(w.chomp)
+  NOT_END = %w(i.e. fig. Fig. pic. Pic. Tab. tab. Table. eq. Eq. Ref. e.g. Sec. Section.)
+  N_NOT_END = ['table. \\', 'section. \\', 'P. R.']
+  L_NOT_END = ['et al.', 'P. R.']
+  def eol?(lw, w, nw)
+    not_end = NOT_END.include?(w.chomp) ||
+      N_NOT_END.reduce(false) { |a, e| a || "#{w.chomp} #{nw.chomp}".start_with?(e) } ||
+      L_NOT_END.reduce(false) { |a, e| a || ("#{lw.chomp} #{w.chomp}" == e) }
+
+    return false if not_end
     w.chomp.end_with?('.')
   end
 
@@ -97,10 +103,10 @@ class TeXFile
     end
   end
 
-  def print(file, type)
+  def print(file, type, debug = false)
     outfile = File.new(file, 'w')
     outfile.puts to_s(type.to_sym)
-    #puts @content.map { |c, s, s1| "#{c.chomp} #{s1.to_s.color(:white)}" }
+    puts @content.map { |c, s, s1| "#{c.chomp} #{s1.to_s.color(:white)}" } if debug
     outfile.close
   end
 
@@ -159,7 +165,7 @@ class TeXFile
       @status[-1] = "#{@status[-1]}_end".to_sym
     when str.begin_with?('\begin{')
       @status << :environment
-    when !(str =~ %r[\\(caption|title|author|abstract|affiliation){]).nil? #CMDLIST.reduce(false) { |a, e| a || str.begin_with?("\\#{e}{") }
+    when !(str =~ %r[\\(caption|title|author|abstract|affiliation|section|subsection){]).nil? #CMDLIST.reduce(false) { |a, e| a || str.begin_with?("\\#{e}{") }
       @status << :command_begin
       @inbrace = 0
       count_brace(str)
@@ -179,7 +185,7 @@ class DealTex < ::Escort::ActionCommand::Base
     infile.each.to_a.each { |l| tex.readline(l) }
     infile.close
 
-    tex.print(command_options[:outfile], command_options[:type])
+    tex.print(command_options[:outfile], command_options[:type], command_options[:debug])
   end
 end
 
@@ -192,6 +198,8 @@ Escort::App.create do |app|
       short: '-o', long: '--out-file', type: :string
     opts.opt :type, 'The type of output file', short: '-t', long: '--type',
       type: :string, default: 'sentence'
+    opts.opt :debug, 'Show debug info or not', short: '-d', long: '--debug',
+      type: :bool, default: false
 
     opts.validate(:type, 'must be "sentence" or "paragraph"') { |o| %w(sentence paragraph).include?(o) }
   end
