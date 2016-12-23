@@ -7,24 +7,25 @@ class CallGraph < ::Escort::ActionCommand::Base
   TEMP = 'tempcallgraph.dot'
   def execute
     @opt = global_options.merge(command_options)
-    raise 'Please input a valid source file' unless @opt[:infile] && File.exist?(@opt[:infile])
 
-
-    system("clang++ -std=c++0x #{@opt[:option].gsub('*', '-')} -S -emit-llvm #{@opt[:infile]} -o - | opt -analyze -std-link-opts -dot-callgraph")
+    system("cat #{@opt[:infile].split(',').join(' ')} > combine_cppfile.cc")
+    system("clang++ -std=c++0x #{@opt[:option].gsub('*', '-')} -S -emit-llvm combine_cppfile.cc -o - | opt -analyze -std-link-opts -dot-callgraph")
 
     script = `cat callgraph.dot | c++filt`.each_line.to_a
     script.map! { |l| deal_bracket(l) }
     script.insert(2, 'rankdir=LR;')
     exclude_node(script, 'external node')
     (@opt[:excludes] || '').split(',').each { |t| exclude_node(script, t) }
+    script.uniq!
 
     tmpfile = File.new(TEMP, 'w')
     tmpfile.puts script
     tmpfile.close
 
-    system("dot #{TEMP} -LO -T#{File.extname(@opt[:outfile])[1..-1]} -o#{@opt[:outfile]}")
+    system("dot #{TEMP} -T#{File.extname(@opt[:outfile])[1..-1]} -o#{@opt[:outfile]}")
 
     FileUtils.rm 'callgraph.dot'
+    FileUtils.rm 'combine_cppfile.cc'
     @opt[:script] ? FileUtils.mv(TEMP, @opt[:script]) : FileUtils.rm(TEMP)
   end
 
@@ -38,7 +39,14 @@ class CallGraph < ::Escort::ActionCommand::Base
 
     node = critical_line.map { |l| l.split(' ')[0] }
 
-    script.reject! { |l| node.include?(l.split(' ')[0]) }
+    script.reject! { |l| with_node(node, l) }
+  end
+
+  def with_node(node, line)
+    from_node = line.split(' ')[0]
+    to_node = line =~ /->/ && line.split(' ')[2][0..-2]
+    return true if node.include?(from_node)
+    to_node ? node.include?(to_node) : false
   end
 end
 
