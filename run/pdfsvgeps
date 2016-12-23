@@ -1,0 +1,5 @@
+#!/bin/env bash
+outname=`echo $1 | sed -e "s:.pdf:.eps:g"`
+pdf2svg $1 $1.svg
+inkscape -f $1.svg --export-eps=$outname
+rm $1.svg

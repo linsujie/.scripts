@@ -1,0 +1,64 @@
+#!/bin/env ruby
+# encoding: utf-8
+
+require 'escort'
+require 'fileutils'
+class CallGraph < ::Escort::ActionCommand::Base
+  TEMP = 'tempcallgraph.dot'
+  def execute
+    @opt = global_options.merge(command_options)
+    raise 'Please input a valid source file' unless @opt[:infile] && File.exist?(@opt[:infile])
+
+
+    system("clang++ -std=c++0x #{@opt[:option].gsub('*', '-')} -S -emit-llvm #{@opt[:infile]} -o - | opt -analyze -std-link-opts -dot-callgraph")
+
+    script = `cat callgraph.dot | c++filt`.each_line.to_a
+    script.map! { |l| deal_bracket(l) }
+    script.insert(2, 'rankdir=LR;')
+    exclude_node(script, 'external node')
+    (@opt[:excludes] || '').split(',').each { |t| exclude_node(script, t) }
+
+    tmpfile = File.new(TEMP, 'w')
+    tmpfile.puts script
+    tmpfile.close
+
+    system("dot #{TEMP} -LO -T#{File.extname(@opt[:outfile])[1..-1]} -o#{@opt[:outfile]}")
+
+    FileUtils.rm 'callgraph.dot'
+    @opt[:script] ? FileUtils.mv(TEMP, @opt[:script]) : FileUtils.rm(TEMP)
+  end
+
+  def deal_bracket(l)
+    l.gsub(/([^-])>/, '\1\\>').gsub('<', '\\<')
+  end
+
+  def exclude_node(script, n)
+    critical_line = script.select { |l| l =~ /#{n}/ }
+    return if critical_line.empty?
+
+    node = critical_line.map { |l| l.split(' ')[0] }
+
+    script.reject! { |l| node.include?(l.split(' ')[0]) }
+  end
+end
+
+Escort::App.create do |app|
+  app.summary 'This command is used to generate the callgraph for c++ source (clang and dot are adopted)'
+
+  app.options do |opts|
+    opts.opt :infile, 'The input source file',
+      short: '-i', long: '--infile', type: :string
+    opts.opt :outfile, 'The output picture name',
+      short: '-o', long: '--outfile', type: :string, default: 'callgraph.eps'
+    opts.opt :script, 'The dot script generated, no dot script would be generated if you leave this option empty',
+      short: '-s', long: '--script', type: :string
+    opts.opt :option, 'The compile option of the source file, replacing "-" with "*" to avoid the problem of escort',
+      short: :none, long: '--option', type: :string
+    opts.opt :excludes, 'The exclude rule you want to adopt, spliting with ","',
+      short: '-e', long: '--excludes', type: :string
+  end
+
+  app.action do |options, arguments|
+    CallGraph.new(options, arguments).execute
+  end
+end

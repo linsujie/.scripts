@@ -1,0 +1,2 @@
+#!/bin/env bash
+tmux-mem-cpu-load | sed 's:[0-9A-Z/]\+ ::'
