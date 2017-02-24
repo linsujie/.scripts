@@ -46,8 +46,9 @@ class TeXFile
   end
 
   def add_evironment_line(str)
+    return if str.empty?
     changeline
-    @content[@content_index][0] << str.chomp
+    @content[-1][0] << str.chomp
   end
 
   def sentence_splitor(str)
@@ -57,29 +58,28 @@ class TeXFile
 
   def word_recording(lw, w, nw)
     changeline if @content.empty? || @status[-1] != @content[-1][1]
+    changeline if @tochange
     addword(w)
-    changeline if eol?(lw, w, nw)
+    tochangeline if eol?(lw, w, nw)
   end
 
   def addword(w)
-    return if w.empty? || !@content_index
+    return if w.empty? || !@content[-1] || @content[-1][1] == :gap
 
-    space = @content[@content_index][0].empty? ? '' : ' '
-    @content[@content_index][0] << (space + w.strip)
+    space = @content[-1][0].empty? ? '' : ' '
+    @content[-1][0] << (space + w.strip)
+  end
+
+  def tochangeline
+    @tochange = true
   end
 
   def changeline
-    if @content_index && @content[-1][1] != :txt
-      @annotates.each { |a| a.begin_with?('%%%%') ? @content << [a, :annotate, ''] : @content[@content_index][0] << a }
-    else
-      @annotates.each { |a| @content.insert(-2, [a, :annotate, '']) }
-    end
+    @annotates.each { |a| @content.insert(-1, [a, :annotate, :annotate]) }
 
     @annotates.clear
     @content << ['', @status[-1], @status.clone]
-
-    revind = @content.transpose[1].reverse.find_index { |i| i != :gap }
-    @content_index = (revind && @content.size - 1 - revind)
+    @tochange = false
   end
 
   NOT_END = %w(i.e. fig. Fig. pic. Pic. Tab. tab. Table. eq. Eq. Ref. e.g. Sec. Section.)
@@ -96,22 +96,19 @@ class TeXFile
 
   def addgap
     return if @content[-1][1] == :gap
-    if @content[-1] && @content[-1][0].empty?
-      @content[-1] = ['', :gap, '']
-    else
-      @content << ['', :gap, '']
-    end
+    changeline
+    @content[-1] = ['', :gap, :gap]
   end
 
   def print(file, type, debug = false)
+    return puts(@content.map { |c, s, s1| "#{c.chomp} #{s1.to_s.color(:white)}" }) if debug
     outfile = File.new(file, 'w')
     outfile.puts to_s(type.to_sym)
-    puts @content.map { |c, s, s1| "#{c.chomp} #{s1.to_s.color(:white)}" } if debug
     outfile.close
   end
 
   def to_s(type = :sentence)
-    return @content.map { |c, _| c.chomp }.join("\n") if type == :sentence
+    return sentence_to_s if type == :sentence
 
     lines = ['']
     last_s = nil
@@ -129,6 +126,14 @@ class TeXFile
     end
 
     lines
+  end
+
+  def sentence_to_s
+    format_result = @content.each_with_object([]) do |l, a|
+      a[-1][0].chomp! if a[-1] && a[-1][2] == [:environment] && l[1] == :annotate
+      a << [l[0].chomp + "\n", l[1], l[2]]
+    end
+    format_result.transpose[0].join('')
   end
 
   WIDTH = 80
@@ -165,7 +170,7 @@ class TeXFile
       @status[-1] = "#{@status[-1]}_end".to_sym
     when str.begin_with?('\begin{')
       @status << :environment
-    when !(str =~ %r[\\(caption|title|author|abstract|affiliation|section|subsection){]).nil? #CMDLIST.reduce(false) { |a, e| a || str.begin_with?("\\#{e}{") }
+    when !(str =~ %r[^\s*\\(caption|title|author|abstract|affiliation|section|subsection){]).nil? #CMDLIST.reduce(false) { |a, e| a || str.begin_with?("\\#{e}{") }
       @status << :command_begin
       @inbrace = 0
       count_brace(str)
