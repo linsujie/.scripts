@@ -1,0 +1,13 @@
+#!/bin/env bash
+
+name=`echo $1 | sed -e "s/\(\w\+\)\(.\w\+\)*/\1/g"`
+if [[ $name == '' ]];
+then
+  echo "Usage:replytopdf replyfile"
+  exit
+fi
+
+geometry="top=1in,inner=1in,outer=1in,bottom=1in,headheight=3ex,headsep=2ex"
+font="Times New Roman"
+echo pandoc -s -r markdown -w latex -M geometry:"$geometry" -M mainfont:"$font" -M fontsize:12pt --latex-engine=xelatex -o $name.pdf $name.md
+pandoc -s -r markdown -w latex -M geometry:"$geometry" -M mainfont:"$font" -M fontsize:12pt --latex-engine=xelatex -o $name.pdf $name.md
