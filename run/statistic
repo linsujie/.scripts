@@ -1,4 +1,4 @@
-#!/bin/ruby
+#!/bin/env ruby
 # encoding: utf-8
 
 # Defining some statistic method for Array
