@@ -1,0 +1,39 @@
+#!/bin/env ruby
+# encoding: utf-8
+
+require 'rainbow/ext/string'
+
+def select_file(files)
+  files.select { |f| File.exist?(f) }
+end
+
+def counting(str)
+  result = { '汉字' => 0,
+             '英文' => 0,
+             '行数' => 0,
+             '空格' => 0,
+             '字符' => 0
+  }
+
+  str.each_char do |c|
+    case c
+    when /\p{Han}/ then result['汉字'] += 1
+    when "\n" then result['行数'] += 1
+    when ' ' then result['空格'] += 1
+    when /\w/ then result['英文'] += 1
+    else
+        result['字符'] += 1
+    end
+  end
+
+  result
+end
+
+def print(hash)
+  hash.each { |k, v| puts "#{k.bright}: #{v}" }
+end
+
+files = select_file(ARGV)
+result = counting(files.map { |f| File.new(f).read }.join("\n"))
+
+print(result)
