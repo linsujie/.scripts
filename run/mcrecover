@@ -16,6 +16,7 @@ end
 def recover(ask, update = false)
   return unless ask.path
   geninifile(ask) if !File.exist?("#{ask.path}/inifile") || update
+  system(%(sed -i "s:plot_data_dir = .*$:plot_data_dir = #{File.absolute_path('.')}/plot_data/:g" #{ask.path}/inifile/distgalp*.ini))
   system("./getdist #{ask.path}/inifile/distgalp*.ini")
   system("cp --parents out/galp#{ask.tail}.* #{ask.path}") if update
 end
