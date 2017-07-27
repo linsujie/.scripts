@@ -1,0 +1,14 @@
+#!/bin/env bash
+datafile=$1
+lninterp=$2
+if [[ ! -f $datafile ]]; then
+  echo This command is used to calculate the quadracture result of a spectrum in two column dat file
+  echo Usage::quadracture file_name [ln_interp = 1]
+  exit 1
+fi
+
+if [[ $lninterp == '' ]]; then
+  lninterp=1
+fi
+
+root -b -q ${BASH_SOURCE}.C+"(\"$datafile\", $lninterp)"
