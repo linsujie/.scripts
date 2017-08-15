@@ -1,0 +1,24 @@
+#!/bin/env bash
+
+if [[ $1 == '' ]]; then
+  echo "Usage:CL_Limits config_file.C"
+
+  cat <<EOF
+
+  This command is used to plot the 1 sigma, 2 sigma and 3 sigma region in 2d plane.
+  To achieve this, you need to provide a config_file, which is a root script that should include:
+    variable:
+       TString xaxis, yaxis, outname;
+       Double_t xmin, ymin, xmax, ymax;
+       Int_t xgrid, ygrid;
+
+    function:
+       double limits_function(double x, double y);
+       void ini_function();
+       void draw_extra();
+EOF
+  exit 1
+fi
+
+echo "#include \"`pwd`/$1\"" > ${BASH_SOURCE}_config.C
+root -b -q ${BASH_SOURCE}.C
