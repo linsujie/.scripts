@@ -26,7 +26,6 @@ void fill_hist(TH2F* hist, Int_t ix, Int_t iy, Double_t& value)
   Double_t x = hist->GetXaxis()->GetBinCenterLog(ix);
   Double_t y = hist->GetYaxis()->GetBinCenterLog(iy);
 
-  //cout << x << " " << y << " " << limits_function(x, y) << endl;
   hist->SetBinContent(ix, iy, limits_function(x, y));
 }
 
@@ -112,8 +111,6 @@ void search_outside_point(Double_t& x, Double_t& y)
 
 void complete_circle(TGraph* gr)
 {
-  cout << "complete>>>>>>>>>>>>>>>>>>" << endl;
-  gr->Print();
   Double_t x0 = gr->GetX()[0], y0 = gr->GetY()[0];
   search_outside_point(x0, y0);
 
@@ -133,10 +130,6 @@ void complete_circle(TGraph* gr)
     if (y0 == ymax) gr->SetPoint(gr->GetN(), xmax, ymax);
     gr->SetPoint(gr->GetN(), x0, y0);
   }
-
-  cout << "=======================================" << endl;
-  gr->Print();
-  cout << "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<" << endl;
 }
 
 void draw_contour(TList* list, Int_t i, TLegend* leg)
@@ -187,7 +180,7 @@ Int_t CL_limits()
   TCanvas can("distribution", "distribution", 1600, 1200);
   can.SetLogx(); can.SetLogy();
   can.SetMargin(0.12, 0.03, 0.12, 0.03);
-  TLegend* leg = new TLegend(0.16, 0.7, 0.3, 0.92);
+  TLegend* leg = new TLegend(0.16, 0.72, 0.3, 0.94);
 
   hist->SetStats(0);
   hist->Draw("cont list");
