@@ -77,15 +77,16 @@ Bool_t un_closed(TGraph* gr)
 
   Int_t nfarer = 0;
   Int_t ncloser = 0;
+  const Double_t critical_frac = 0.1;
   for (Int_t i = 1; i < npoints - 1; i++) {
     if (distance(x[0], y[0], x[i], y[i]) < head_tail_distance) ncloser++;
     else nfarer++;
 
-    if (ncloser > (npoints / 2 - 1)) return true;
-    if (nfarer > (npoints / 2 - 1)) return false;
+    if (ncloser > (npoints - 2) * critical_frac) return true;
+    if (nfarer > (npoints - 2) * (1 - critical_frac)) return false;
   }
 
-  return ncloser > nfarer;
+  return ncloser / critical_frac > nfarer / (1 - critical_frac);
 }
 
 void search_outside_point(Double_t& x, Double_t& y)
