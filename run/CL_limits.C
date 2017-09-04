@@ -76,7 +76,7 @@ Bool_t un_closed(TGraph* gr)
 
   Int_t nfarer = 0;
   Int_t ncloser = 0;
-  const Double_t critical_frac = 0.1;
+  const Double_t critical_frac = 0.05;
   for (Int_t i = 1; i < npoints - 1; i++) {
     if (distance(x[0], y[0], x[i], y[i]) < head_tail_distance) ncloser++;
     else nfarer++;
@@ -117,19 +117,31 @@ void complete_circle(TGraph* gr)
   Double_t xn = gr->GetX()[gr->GetN() - 1], yn = gr->GetY()[gr->GetN() - 1];
   search_outside_point(xn, yn);
 
-  if (xn > x0) {
-    gr->SetPoint(gr->GetN(), xn, yn);
-    if (yn == ymax) gr->SetPoint(gr->GetN(), xmax, ymax);
-    if (xn == xmax || yn == ymax) gr->SetPoint(gr->GetN(), xmax, ymin);
-    if (x0 == xmin) gr->SetPoint(gr->GetN(), xmin, ymin);
-    gr->SetPoint(gr->GetN(), x0, y0);
-  } else {
-    gr->SetPoint(gr->GetN(), xn, yn);
-    if (xn == xmin) gr->SetPoint(gr->GetN(), xmin, ymin);
-    if (x0 == xmax || y0 == ymax) gr->SetPoint(gr->GetN(), xmax, ymin);
-    if (y0 == ymax) gr->SetPoint(gr->GetN(), xmax, ymax);
-    gr->SetPoint(gr->GetN(), x0, y0);
+  vector<double> xvec, yvec;
+  if (fmin(xn, x0) == xmin && fmax(xn, x0) == xmax) { // horizontal cross
+    xvec.push_back(xmin); yvec.push_back(ymin);
+    xvec.push_back(xmax); yvec.push_back(ymin);
+  } else if (fmin(xn, x0) == xmin && fmin(yn, y0) == ymin) { // left bottom
+    xvec.push_back(xmin); yvec.push_back(ymin);
+  } else if (fmin(xn, x0) == xmin && fmax(yn, y0) == ymax) { // left top
+    xvec.push_back(xmin); yvec.push_back(ymin);
+    xvec.push_back(xmax); yvec.push_back(ymin);
+    xvec.push_back(xmax); yvec.push_back(ymax);
+  } else if (fmax(xn, x0) == xmax && fmin(yn, y0) == ymin) { // right bottom
+    xvec.push_back(xmax); yvec.push_back(ymin);
+  } else if (fmax(xn, x0) == xmax && fmax(yn, y0) == ymax) { // right top
+    xvec.push_back(xmax); yvec.push_back(ymax);
   }
+
+  gr->SetPoint(gr->GetN(), xn, yn);
+  if (xn > x0) {
+    for (int i = xvec.size() - 1; i >= 0; i--)
+      gr->SetPoint(gr->GetN(), xvec[i], yvec[i]);
+  } else {
+    for (int i = 0; i < xvec.size(); i++)
+      gr->SetPoint(gr->GetN(), xvec[i], yvec[i]);
+  }
+  gr->SetPoint(gr->GetN(), x0, y0);
 }
 
 void draw_contour(TList* list, Int_t i, TLegend* leg)
