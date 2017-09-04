@@ -1,6 +1,5 @@
 #include <iostream>
 #include <vector>
-#include <set>
 
 #define CL_LIMITS
 using namespace std;
@@ -215,7 +214,7 @@ Int_t CL_limits()
 
   leg->Draw();
 
-  draw_extra();
+  draw_extra(bestx[0], besty[0], minchi);
 
   can.Print(outname);
 
