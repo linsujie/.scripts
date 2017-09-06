@@ -75,6 +75,7 @@ class Drags
   end
 
   def drag(file)
+    return if File.size(file).zero?
     puts "Reading #{file}"
     return(deallargefile(file)) if File.size(file) > 1000000
 
