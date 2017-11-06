@@ -68,7 +68,7 @@ class DealSpec < ::Escort::ActionCommand::Base
 
   def assign_ekin(xaxis, ys)
     @ekin[:x] = xaxis
-    @ekin[:y] = ys 
+    @ekin[:y] = ys
 
     @rigid[:x] = xaxis.map { |e| ekn2rg(e, @opt[:A], @opt[:Z]) }
     @rigid[:y] = ys.map { |yaxis| flux_e2r(yaxis) }

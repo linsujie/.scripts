@@ -1,0 +1,94 @@
+#!/bin/env ruby
+# encoding: utf-8
+
+require 'escort'
+require '~/.scripts/dailymethod.rb'
+
+# Define the formating method for Float
+class Float
+  def formating
+    format('%.6e', self)
+  end
+end
+
+# The class to get bin center of a spectrum
+class SpecBinCenter < ::Escort::ActionCommand::Base
+  attr_reader :data
+
+  def execute
+    @opt = global_options
+    raise 'Please input file' unless @opt[:input] && File.exist?(@opt[:input])
+    raise 'Please specify output' unless @opt[:output]
+    @dat = { e: [], emin: [], emax: [], flux: [], sigma: [],
+             indexs: [] }
+
+    @dat[:emin], @dat[:emax], @dat[:flux], @dat[:sigma] = File.new(@opt[:input])
+      .each.to_a.map { |l| l.split(' ').map(&:to_f) }.transpose
+
+    @dat[:e] = @dat[:emin].zip(@dat[:emax]).map { |l, u| (l + u) / 2 }
+
+    (1..@opt[:iteration]).each { iterate }
+
+    print(@opt[:output])
+  end
+
+  def print(filename)
+    file = File.new(filename, 'w')
+    p @dat[:e].size
+    p @dat[:flux].size
+    p @dat[:sigma].size
+    file.puts @dat[:e].zip(@dat[:flux], @dat[:sigma])
+      .map { |e, f, s| [e, f * e**@opt[:rind], s * e**@opt[:rind]] }
+      .map { |t| t.map(&:formating).join(' ') }
+    file.close
+  end
+
+  private
+
+  def iterate
+    @dat[:indexs] = @dat[:e].zip(@dat[:flux]).each_cons(3).map { |pt| index(pt) }
+    @dat[:indexs].unshift(@dat[:indexs][0])
+    @dat[:indexs].push(@dat[:indexs][-1])
+
+    @dat[:e] = @dat[:emin].zip(@dat[:emax], @dat[:indexs])
+               .map { |par| bin_center(*par) }
+  end
+
+  def points?(points)
+    points.select! { |e| e.is_a?(Array) }
+    points.map(&:size).reduce(true) { |a, e| a && e == 2 }
+  end
+
+  def index(points)
+    fail 'please input the right points' unless points?(points)
+    x, y = points.map { |l| l.map { |x| Math.log10(x) } }.transpose
+
+    sub = x.zip(y).map { |a, b| a * b }.average - x.average * y.average
+    demo = x.map { |a| a * a }.average - x.average**2
+
+    sub / demo
+  end
+
+  def bin_center(emin, emax, index)
+    d = emax - emin
+    egamma = (emax**(index + 1) - emin**(index + 1)) / (d * (1 + index))
+    egamma**(1 / index)
+  end
+end
+
+Escort::App.create do |app|
+  app.options do |opts|
+    opts.opt :input, 'Input file name',
+             short: '-i', long: '--input', type: :string
+    opts.opt :iteration, 'iterate times',
+             short: '-n', long: '--niter', type: :int, default: 7
+    opts.opt :output, 'Output file name',
+             short: '-o', long: '--output', type: :string
+    opts.opt :rind, 'The rescaling index',
+      short: '-r', long: '--rind', type: :float, default: 0.0
+  end
+
+  app.action do |options, arguments|
+    SpecBinCenter.new(options, arguments).execute
+  end
+end
