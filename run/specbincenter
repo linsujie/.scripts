@@ -34,9 +34,6 @@ class SpecBinCenter < ::Escort::ActionCommand::Base
 
   def print(filename)
     file = File.new(filename, 'w')
-    p @dat[:e].size
-    p @dat[:flux].size
-    p @dat[:sigma].size
     file.puts @dat[:e].zip(@dat[:flux], @dat[:sigma])
       .map { |e, f, s| [e, f * e**@opt[:rind], s * e**@opt[:rind]] }
       .map { |t| t.map(&:formating).join(' ') }

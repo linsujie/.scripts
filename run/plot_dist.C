@@ -13,7 +13,7 @@
 
 using namespace std;
 
-int plot_dist(const TString &infile, int icol, int nbin, const TString &outname = "temp.eps", double rescale = 1.0) {
+int plot_dist(const TString &infile, int icol, int nbin, const TString &outname = "temp.eps", double rescale = 1.0, double xmin = 0, double xmax = 0, double ymin = 0, double ymax = 0) {
   if (icol == 0) {
     cout << "icol should be larger than zero" << endl;
     return 1;
@@ -31,7 +31,7 @@ int plot_dist(const TString &infile, int icol, int nbin, const TString &outname 
   vector <double> vec;
   vec.reserve(100000);
 
-  double xmin = 0, xmax = 0;
+  double xmin_ = 0, xmax_ = 0;
   int nline = 1;
   for(; getline(file, line); nline++) {
     istringstream lstream(line);
@@ -39,18 +39,28 @@ int plot_dist(const TString &infile, int icol, int nbin, const TString &outname 
     for (int i = 0; i < icol; i++) lstream >> tmpnum;
 
     if (nline == 1) {
-      xmin = tmpnum; xmax = tmpnum;
+      xmin_ = tmpnum; xmax_ = tmpnum;
     } else {
-      xmin = (xmin < tmpnum ? xmin : tmpnum);
-      xmax = (xmax > tmpnum ? xmax : tmpnum);
+      xmin_ = (xmin_ < tmpnum ? xmin_ : tmpnum);
+      xmax_ = (xmax_ > tmpnum ? xmax_ : tmpnum);
     }
     vec.push_back(tmpnum);
   }
 
-  TH1F th(outname, outname + " distribution", nbin, xmin, xmax);
-  for (int i = 0; i < nline; i++) th.Fill(vec[i], 1.0 / nline * nbin / (xmax - xmin) * rescale);
+  if (xmax > xmin && ymax > ymin) {
+    xmin_ = xmin; xmax_ = xmax;
+  }
 
-  th.Draw();
+  TH1F th(outname, outname + " distribution", nbin, xmin_, xmax_);
+  for (int i = 0; i < nline; i++) th.Fill(vec[i], 1.0 / nline * nbin / (xmax_ - xmin_) * rescale);
+
+  if (xmax <= xmin || ymax <= ymin) th.Draw("hist E");
+  else {
+    can.DrawFrame(xmin, ymin, xmax, ymax, outname + " distribution");
+    th.Draw("same hist E");
+  }
+
+  can.SetLogy();
   can.Print(outname);
 
   return 0;
