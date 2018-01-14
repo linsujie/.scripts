@@ -1,0 +1,50 @@
+#!/bin/env ruby
+# encoding : utf-8
+
+require 'escort'
+
+class GenLatexTar < ::Escort::ActionCommand::Base
+  def execute
+    @opt = global_options.merge(command_options)
+
+    raise 'Please specify the latex file name' unless @opt[:file]
+
+    @paper = File.new(@opt[:file]).read
+
+    root_dir = File.dirname(@opt[:file])
+    list = sub_files(root_dir).select { |f| file_included?(f) }
+    list += [@opt[:file], @opt[:file].sub('tex', 'bbl')]
+
+    sys("tar cvf #{@opt[:file].sub('tex', 'tar')} #{list.join(' ')}")
+  end
+
+  def sys(cmd)
+    puts(cmd)
+    system(cmd)
+  end
+
+  def file_included?(file)
+    /#{File.basename(file)}/ =~ @paper
+  end
+
+  def sub_files(root_dir)
+    dir = Dir.glob("#{root_dir}/*")
+    subdir = dir.select { |f| File.directory?(f) }
+
+    files = dir.select { |f| File.file?(f) && /^.+\.\w+$/ =~ f }
+    files + subdir.map { |d| sub_files(d) }.flatten
+  end
+end
+
+Escort::App.create do |app|
+  app.summary 'This code is used to generate a tar file for specific tex file'
+
+  app.options do |opts|
+    opts.opt :file, 'The latex file to be compressed',
+      short: '-f', long: '--file', type: :string
+  end
+
+  app.action do |options, arguments|
+    GenLatexTar.new(options, arguments).execute
+  end
+end

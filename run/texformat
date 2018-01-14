@@ -82,7 +82,7 @@ class TeXFile
     @tochange = false
   end
 
-  NOT_END = %w(i.e. fig. Fig. pic. Pic. Tab. tab. Table. eq. Eq. Ref. e.g. Sec. Section. C.L.)
+  NOT_END = %w(i.e. fig. Fig. pic. Pic. Tab. tab. Table. eq. Eq. Ref. e.g. Sec. Section. No. C.L.)
   N_NOT_END = ['table. \\', 'section. \\', 'P. R.']
   L_NOT_END = ['et al.', 'P. R.']
   def eol?(lw, w, nw)

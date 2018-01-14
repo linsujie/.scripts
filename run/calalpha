@@ -15,12 +15,23 @@ class CalAlpha < ::Escort::ActionCommand::Base
       opt[:chi2] = Chisq::chi2(opt[:alpha], opt[:dof])
     end
 
-    result = ['d.o.f', 'chi square', 'alpha', 'sigma']
-      .map { |s| format("%-12.12s:", s).bright }
-      .zip([opt[:dof], opt[:chi2], opt[:alpha], Chisq::getnsig(opt[:alpha])])
+    opt[:rhomu] = rho_mu(opt[:dof], opt[:set])
+    opt[:rhosigma] = rho_sigma(opt[:dof], opt[:set])
+
+    result = ['d.o.f', 'chi square', 'alpha', 'sigma', 'rho mu, sigma']
+      .map { |s| format("%-18.18s:", s).bright }
+      .zip([opt[:dof], opt[:chi2], opt[:alpha], Chisq::getnsig(opt[:alpha]), [opt[:rhomu], opt[:rhosigma]].join(' ')])
       .map { |l| l.join(' ') }.join("\n")
 
     Escort::Logger.output.puts result
+  end
+
+  def rho_mu(n, nset)
+    - 1.0 / n * (n - nset) / (n - 1)
+  end
+
+  def rho_sigma(n, nset)
+    Math.sqrt((n - 2.0)**2 * (n - nset) / (n**2 * (n - 1)**2))
   end
 end
 
@@ -28,6 +39,7 @@ Escort::App.create do |app|
   app.options do |opts|
     opts.opt :alpha, '', short: '-a', long: '--alpha', type: :float, default: 0.0
     opts.opt :dof, 'degree of freedom', short: '-d', long: '--dof', type: :int, default: 1
+    opts.opt :set, 'number of data set', short: '-s', long: '--set', type: :int, default: 1
     opts.opt :chi2, 'chi square', short: '-c', long: '--chi2', type: :float, default: 0.0
   end
 
