@@ -1,0 +1,8 @@
+#!/bin/env bash
+
+if [[ $1 == "" ]]; then
+  echo "Usage:shadowsocks  (ipv4|ipv6)"
+  exit
+fi
+
+nohup sslocal -c ~/.shadowsocks/$1.json >  ~/.shadowsocks/run.log  2> ~/.shadowsocks/run.log &
