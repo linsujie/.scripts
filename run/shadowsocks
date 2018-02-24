@@ -5,4 +5,13 @@ if [[ $1 == "" ]]; then
   exit
 fi
 
-nohup sslocal -c ~/.shadowsocks/$1.json >  ~/.shadowsocks/run.log  2> ~/.shadowsocks/run.log &
+for running_id in `ps x | grep sslocal | grep -v grep | awk '{print $1}'`; do
+  id_type=`ps x | grep $running_id | grep -v grep | awk '{print $NF}' | sed "s:[/a-z\.]\+\(ipv4\|ipv6\).json:\1:g"`
+  echo "Stoping the runing shadowsocks [$id_type]"
+  kill $running_id
+done
+
+if [[ $1 == "ipv6" || $1 == "ipv4" ]]; then
+  echo "Begin shadowsocks [$1]"
+  nohup sslocal -c ~/.shadowsocks/$1.json >  ~/.shadowsocks/run.log  2> ~/.shadowsocks/run.log &
+fi
