@@ -18,9 +18,12 @@ class CalAlpha < ::Escort::ActionCommand::Base
     opt[:rhomu] = rho_mu(opt[:dof], opt[:set])
     opt[:rhosigma] = rho_sigma(opt[:dof], opt[:set])
 
-    result = ['d.o.f', 'chi square', 'alpha', 'sigma', 'rho mu, sigma']
+    result = ['d.o.f', 'chi square', 'alpha',
+              'sigma',
+              'rho mu, sigma']
       .map { |s| format("%-18.18s:", s).bright }
-      .zip([opt[:dof], opt[:chi2], opt[:alpha], Chisq::getnsig(opt[:alpha]), [opt[:rhomu], opt[:rhosigma]].join(' ')])
+      .zip([opt[:dof], opt[:chi2], opt[:alpha], Chisq::getnsig(opt[:alpha]),
+    [opt[:rhomu], opt[:rhosigma]].join(' ')])
       .map { |l| l.join(' ') }.join("\n")
 
     Escort::Logger.output.puts result

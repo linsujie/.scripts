@@ -11,7 +11,7 @@ for running_id in `ps x | grep sslocal | grep -v grep | awk '{print $1}'`; do
   kill $running_id
 done
 
-if [[ $1 == "ipv6" || $1 == "ipv4" ]]; then
+if [[ $1 == "ipv6" || $1 == "ipv4" || $1 == "ipv4-1" ]]; then
   echo "Begin shadowsocks [$1]"
   nohup sslocal -c ~/.shadowsocks/$1.json >  ~/.shadowsocks/run.log  2> ~/.shadowsocks/run.log &
 fi
