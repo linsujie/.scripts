@@ -168,14 +168,18 @@ void draw_contour(TList* list, Int_t i, TLegend* leg)
 
 Int_t CL_limits()
 {
+  cerr << ">> initializing function" << endl;
   ini_function();
   vector<Double_t> xbounds = get_bound(xmin, xmax, xgrid),
     ybounds = get_bound(ymin, ymax, ygrid);
 
   TH2F *hist = new TH2F("distribution", "distribution", xgrid, &(xbounds[0]), ygrid, &(ybounds[0]));
 
+  cerr << ">> filling histogram" << endl;
   hist_foreach(hist, fill_hist);
+  cerr << ">> finding min chi2" << endl;
   Double_t minchi = hist_foreach(hist, findmin);
+  cerr << ">> dealing histogram" << endl;
   hist_foreach(hist, substract_hist, minchi);
 
   Double_t bestx[1], besty[1];
@@ -187,13 +191,20 @@ Int_t CL_limits()
       }
   TGraph bestgr(1, bestx, besty);
 
-  hist->SetContour(3, contour_level);
-
   TCanvas can("distribution", "distribution", 1600, 1200);
   can.SetLogx(); can.SetLogy();
   can.SetMargin(0.12, 0.03, 0.12, 0.03);
   TLegend* leg = new TLegend(0.16, 0.72, 0.3, 0.94);
 
+#ifdef RAW_HIST
+  hist->SetStats(0);
+  hist->Draw("colz");
+  draw_extra(bestx[0], besty[0], minchi);
+  can.Print(outname);
+  return 0;
+#endif
+
+  hist->SetContour(3, contour_level);
   hist->SetStats(0);
   hist->Draw("cont list");
   can.Update();
