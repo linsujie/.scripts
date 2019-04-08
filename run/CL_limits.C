@@ -6,7 +6,7 @@ using namespace std;
 
 #include "CL_limits_config.C"
 
-const Double_t contour_level[] = { 2.2914, 6.1582, 11.6183 }; // for 0.682 0.954 0.997
+const Double_t contour_level[] = { 2.2914, 6.1582, 11.6183, 19.332, 28.738 }; // for 0.682 0.954 0.997 0.9999366 0.999999425
 
 const Double_t NHUGE = 1e300;
 const Double_t deltamax = 100;
@@ -146,7 +146,11 @@ void complete_circle(TGraph* gr)
 
 void draw_contour(TList* list, Int_t i, TLegend* leg)
 {
+#ifdef FIVE_SIGMA
+  static const Int_t MyPalette[6] = { kRed + 2, kGreen + 1, kBlue, kYellow, kGray, kWhite };
+#else
   static const Int_t MyPalette[4] = { kRed + 2, kGreen + 1, kYellow, kWhite };
+#endif
 
   Int_t iter = 0;
   Bool_t to_complete;
@@ -204,7 +208,11 @@ Int_t CL_limits()
   return 0;
 #endif
 
+#ifdef FIVE_SIGMA
+  hist->SetContour(5, contour_level);
+#else
   hist->SetContour(3, contour_level);
+#endif
   hist->SetStats(0);
   hist->Draw("cont list");
   can.Update();
