@@ -144,7 +144,7 @@ void complete_circle(TGraph* gr)
   gr->SetPoint(gr->GetN(), x0, y0);
 }
 
-void draw_contour(TList* list, Int_t i, TLegend* leg)
+void draw_contour(TList* list, Int_t i, TLegend* leg, vector<TGraph*>& result)
 {
 #ifdef FIVE_SIGMA
   static const Int_t MyPalette[6] = { kRed + 2, kGreen + 1, kBlue, kYellow, kGray, kWhite };
@@ -161,13 +161,20 @@ void draw_contour(TList* list, Int_t i, TLegend* leg)
     to_pow(gr);
     if (to_complete) complete_circle(gr);
 
-    gr->Draw("same f");
+    result.push_back(gr);
     gr->SetFillColor(MyPalette[i]);
     ostringstream lab;
     lab << i + 1 << "-#sigma";
     if (iter == 0) leg->AddEntry(gr, lab.str().c_str(), "f");
     iter++;
   }
+}
+
+void draw_line(const vector<vector<double> >& points) {
+  TGraph *gr = new TGraph();
+  for (const auto& p : points)
+    gr->SetPoint(gr->GetN(), p[0], p[1]);
+  gr->Draw("same l");
 }
 
 Int_t CL_limits()
@@ -213,13 +220,18 @@ Int_t CL_limits()
 #else
   hist->SetContour(3, contour_level);
 #endif
+  vector<TGraph*> grs;
+
   hist->SetStats(0);
   hist->Draw("cont list");
   can.Update();
   TObjArray *contours = (TObjArray*)gROOT->GetListOfSpecials()->FindObject("contours");
   Int_t ncontours = contours->GetSize();
   for (Int_t icontour = ncontours - 1; icontour >= 0; icontour--)
-    draw_contour((TList*)contours->At(icontour), icontour, leg);
+    draw_contour((TList*)contours->At(icontour), icontour, leg, grs);
+
+  can.Clear();
+  for (auto gr : grs) gr->Draw("same f");
 
   bestgr.Draw("same p");
   bestgr.SetMarkerStyle(22);
@@ -242,6 +254,7 @@ Int_t CL_limits()
   TGaxis *yaxis = new TGaxis(xmin, ymin, xmin, ymax, ymin, ymax, 505, "G");
   xaxis->Draw();
   yaxis->Draw();
+  draw_line({ { xmin, ymax }, { xmax, ymax }, { xmax, ymin } });
 
   leg->Draw();
 
