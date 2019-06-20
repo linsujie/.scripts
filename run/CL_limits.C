@@ -146,11 +146,7 @@ void complete_circle(TGraph* gr)
 
 void draw_contour(TList* list, Int_t i, TLegend* leg, vector<TGraph*>& result)
 {
-#ifdef FIVE_SIGMA
-  static const Int_t MyPalette[6] = { kRed + 2, kGreen + 1, kBlue, kYellow, kGray, kWhite };
-#else
-  static const Int_t MyPalette[4] = { kRed + 2, kGreen + 1, kYellow, kWhite };
-#endif
+  static const Int_t MyPalette[6] = { kRed + 2, kGreen + 1, kYellow + 1, kYellow, kGray, kWhite };
 
   Int_t iter = 0;
   Bool_t to_complete;
@@ -215,11 +211,10 @@ Int_t CL_limits()
   return 0;
 #endif
 
-#ifdef FIVE_SIGMA
-  hist->SetContour(5, contour_level);
-#else
-  hist->SetContour(3, contour_level);
+#ifndef NSIGMA
+#define NSIGMA 3
 #endif
+  hist->SetContour(NSIGMA, contour_level);
   vector<TGraph*> grs;
 
   hist->SetStats(0);
@@ -250,10 +245,16 @@ Int_t CL_limits()
   hist->GetXaxis()->SetTickSize(0);
   hist->GetXaxis()->SetLabelSize(0);
 
-  TGaxis *xaxis = new TGaxis(xmin, ymin, xmax, ymin, xmin, xmax, 505, "G");
-  TGaxis *yaxis = new TGaxis(xmin, ymin, xmin, ymax, ymin, ymax, 505, "G");
-  xaxis->Draw();
-  yaxis->Draw();
+  TGaxis *Xaxis = new TGaxis(xmin, ymin, xmax, ymin, xmin, xmax, 505, "G");
+  TGaxis *Yaxis = new TGaxis(xmin, ymin, xmin, ymax, ymin, ymax, 505, "G");
+  Xaxis->SetTitle(xaxis);
+  Yaxis->SetTitle(yaxis);
+  Xaxis->SetTitleSize(0.05);
+  Yaxis->SetTitleSize(0.05);
+  Yaxis->SetTitleOffset(1.15);
+  Xaxis->Draw();
+  Yaxis->Draw();
+
   draw_line({ { xmin, ymax }, { xmax, ymax }, { xmax, ymin } });
 
   leg->Draw();
