@@ -54,7 +54,7 @@ class BibPrint < ::Escort::ActionCommand::Base
       case true
       when term == '{' then status = :ingroup
       when term == '}' then status = :outside
-      else
+      when !term.empty?
         case status
         when :ingroup then arr << full_split(term, %r{%\w+})
         when :outside then arr.concat(full_split(term, %r{%\w+}).map { |v| [v] })
