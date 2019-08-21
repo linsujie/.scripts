@@ -1,0 +1,155 @@
+#!/usr/bin/env ruby
+# encoding:utf-8
+
+require 'escort'
+
+class BibPrint < ::Escort::ActionCommand::Base
+  def execute
+    raise 'No input file found' unless command_options[:infile]
+    bibitems = read_bibfile(command_options[:infile])
+
+    analysis_format
+
+    bibitems.each { |i| puts format_bibitem(i) }
+  end
+
+  def format_bibitem(item)
+    @format.map { |grp| format_group(grp, item) }.join
+  end
+
+  def format_group(grp, item)
+    grp = grp.map { |v| v =~ %r{%\w+} ? read_item(item, v.sub('%', '')) : v }
+    grp.reduce(true, :&) ? grp.join : ''
+  end
+
+  def read_item(item, key)
+    return item[key] unless key == 'author'
+
+    authors = item['author']
+    authors[0..-2].map { |n| format_name(n) }.join(command_options[:nameconnective]) \
+    + command_options[:lastnameconnectives] + format_name(authors.last)
+  end
+
+  def format_name(name)
+    name = [name[0], name[1..-1].join(' ')]
+    pname = name.clone
+
+    if command_options[:shortname]
+      pname[1] = pname[1].gsub(%r{[^A-Z.-]+}, '.')
+    end
+
+    label = command_options[:firstnamefirst] ? pname.reverse.join(' ') : pname.join(', ')
+
+    return label unless name.reverse.join(' ') == command_options[:specialname]
+    command_options[:specialnameformat].sub('%name', label)
+  end
+
+  def analysis_format
+    raise 'No specified format' unless command_options[:format]
+    fmt = full_split(command_options[:format], %r{[{}]})
+    check_brace_nested(fmt)
+
+    status = :outside
+    @format = fmt.each_with_object([]) do |term, arr|
+      case true
+      when term == '{' then status = :ingroup
+      when term == '}' then status = :outside
+      else
+        case status
+        when :ingroup then arr << full_split(term, %r{%\w+})
+        when :outside then arr.concat(full_split(term, %r{%\w+}).map { |v| [v] })
+        end
+      end
+    end
+  end
+
+  def full_split(str, delimiter)
+    array = [str]
+    while(!array[-1].empty?)
+      array[-1] = array[-1].partition(delimiter)
+      array.flatten!
+    end
+
+    array.pop while array.last.empty?
+    array.shift while array.first.empty?
+    array
+  end
+
+  def check_brace_nested(fmt)
+    (0..fmt.size - 1).each do |i|
+      if fmt[i] == '{' && fmt[i + 2] != '}' ||
+          fmt[i] == '}' && fmt[i - 2] != '{'
+        raise 'The brace {} should be inpair and not nested'
+      end
+    end
+  end
+
+  def is_head?(str)
+    str =~ %r{^\s*@\w+\{[\w:]+,\s*\n$} ? true : false
+  end
+
+  def is_tail?(str)
+    str =~ %r{^\s*\}\s*\n$} ? true : false
+  end
+
+  def read_bibfile(bibfilename)
+    neglected_lines = []
+    pointer = neglected_lines
+    data = File.new(bibfilename).each_line.each_with_object([]) do |l, arr|
+      case true
+      when is_head?(l) then arr << (pointer = [])
+      when is_tail?(l) then pointer = neglected_lines
+      else
+        pointer << l
+      end
+    end
+
+    data.map { |item| analysis_item(item) }
+  end
+
+  def analysis_item(item)
+    split_key = ->(l) { /^\s*(?<key>\w+)\s*=\s*\{(?<val>.+)\},\n$/ =~ l; [key, val] };
+    item = item.map { |l| split_key.call(l) }.to_h
+
+    raise "no author key found in item\n#{item}" if !item.has_key?('author')
+
+    item['author'] = read_author(item['author'])
+    item
+  end
+
+  def read_author(authors)
+    authors.split(' and ').map { |n| n.split(',').map(&:strip) }
+  end
+end
+
+Escort::App.create do |app|
+  app.summary 'This script is used to print the bibtex information in specified format'
+
+  app.description <<-eof
+The '%' and '{}' are reserved chars in the format string.
+  * %key would be replaced with corresponding content.
+  * {%key1 %key2 ...} would be considered as an group, it would only written when all the relevant keys are found
+  eof
+
+  app.options do |opts|
+    opts.opt :infile, 'Input file', short: '-i', long: '--in-file', type: :string
+    opts.opt :format, 'To describe the specified format, read the description for detailed rule',
+      short: '-f', long: '--format', type: :string
+    opts.opt :firstnamefirst, 'To print the firstname at first for the author or not',
+      short: :none, long: '--firstname-first', type: :bool, default: true
+    opts.opt :shortname, 'To use the shortname or not',
+      short: :none, long: '--short-name', type: :bool, default: false
+    opts.opt :nameconnective, 'The string to connect different names',
+      short: :none, long: '--name-connective', type: :string, default: ', '
+    opts.opt :lastnameconnectives, 'The last name-connective could be different from the former',
+      short: :none, long: '--last-name-connective', type: :string, default: ' and '
+    opts.opt :specialname, 'The special name to high light, in format %firstname %lastname',
+      short: :none, long: '--special-name', type: :string
+    opts.opt :specialnameformat, 'The format for special-name, for example "\textbf{%name}"',
+      short: :none, long: '--special-name-format', type: :string
+  end
+
+  app.action do |options, arguments|
+    BibPrint.new(options, arguments).execute
+  end
+end
