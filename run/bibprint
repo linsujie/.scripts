@@ -8,18 +8,18 @@ class BibPrint < ::Escort::ActionCommand::Base
     raise 'No input file found' unless command_options[:infile]
     bibitems = read_bibfile(command_options[:infile])
 
-    analysis_format
+    format = analysis_format
 
-    bibitems.each { |i| puts format_bibitem(i) }
+    bibitems.each { |i| puts format_bibitem(format, i).join }
   end
 
-  def format_bibitem(item)
-    @format.map { |grp| format_group(grp, item) }.join
+  def format_bibitem(format, item)
+    arr = format.map { |term| term.is_a?(Array) ? format_bibitem(term, item) : read_element(term, item) }
+    arr.reduce(true, :&) ? arr : []
   end
 
-  def format_group(grp, item)
-    grp = grp.map { |v| v =~ %r{%\w+} ? read_item(item, v.sub('%', '')) : v }
-    grp.reduce(true, :&) ? grp.join : ''
+  def read_element(ele, item)
+    ele =~ %r{%\w+} ? read_item(item, ele.sub('%', '')) : ele
   end
 
   def read_item(item, key)
@@ -46,21 +46,27 @@ class BibPrint < ::Escort::ActionCommand::Base
 
   def analysis_format
     raise 'No specified format' unless command_options[:format]
-    fmt = full_split(command_options[:format], %r{[{}]})
-    check_brace_nested(fmt)
+    brace = "[#{command_options[:rbrace]}]"
+    @l = brace[1]
+    @r = brace[2]
+    fmt = full_split(command_options[:format], %r{(#{brace}|%\w+)})
 
-    status = :outside
-    @format = fmt.each_with_object([]) do |term, arr|
+    format = []
+    level, pointer  = 0, []
+    pointer[level] = format
+    fmt.each do |term|
       case true
-      when term == '{' then status = :ingroup
-      when term == '}' then status = :outside
+      when term == @l
+        level += 1
+        pointer[level - 1] << (pointer[level] = [])
+      when term == @r
+        level -= 1
+        raise "Too much #{@r} given in the format" if level < 0
       when !term.empty?
-        case status
-        when :ingroup then arr << full_split(term, %r{%\w+})
-        when :outside then arr.concat(full_split(term, %r{%\w+}).map { |v| [v] })
-        end
+        pointer[level] << term
       end
     end
+    format
   end
 
   def full_split(str, delimiter)
@@ -73,15 +79,6 @@ class BibPrint < ::Escort::ActionCommand::Base
     array.pop while array.last.empty?
     array.shift while array.first.empty?
     array
-  end
-
-  def check_brace_nested(fmt)
-    (0..fmt.size - 1).each do |i|
-      if fmt[i] == '{' && fmt[i + 2] != '}' ||
-          fmt[i] == '}' && fmt[i - 2] != '{'
-        raise 'The brace {} should be inpair and not nested'
-      end
-    end
   end
 
   def is_head?(str)
@@ -126,7 +123,7 @@ Escort::App.create do |app|
   app.summary 'This script is used to print the bibtex information in specified format'
 
   app.description <<-eof
-The '%' and '{}' are reserved chars in the format string.
+The '%' and '{}' (it could be changed to '[]' or '<>' by option --rbrace) are reserved chars in the format string.
   * %key would be replaced with corresponding content.
   * {%key1 %key2 ...} would be considered as an group, it would only written when all the relevant keys are found
   eof
@@ -135,6 +132,8 @@ The '%' and '{}' are reserved chars in the format string.
     opts.opt :infile, 'Input file', short: '-i', long: '--in-file', type: :string
     opts.opt :format, 'To describe the specified format, read the description for detailed rule',
       short: '-f', long: '--format', type: :string
+    opts.opt :rbrace, 'The reserved brace used to indicate the group',
+      short: '-r', long: '--rbrace', type: :string, default: '{}'
     opts.opt :firstnamefirst, 'To print the firstname at first for the author or not',
       short: :none, long: '--firstname-first', type: :bool, default: true
     opts.opt :shortname, 'To use the shortname or not',
