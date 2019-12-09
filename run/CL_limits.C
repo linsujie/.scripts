@@ -172,10 +172,19 @@ Int_t CL_limits()
   vector<Double_t> xbounds = get_bound(xmin, xmax, xgrid),
     ybounds = get_bound(ymin, ymax, ygrid);
 
-  TH2F *hist = new TH2F("distribution", "distribution", xgrid, &(xbounds[0]), ygrid, &(ybounds[0]));
+  TH2F *hist = new TH2F(treename, "distribution", xgrid, &(xbounds[0]), ygrid, &(ybounds[0]));
 
   hist_foreach(hist, fill_hist);
   Double_t minchi = hist_foreach(hist, findmin);
+
+  if (storename != "") {
+    TFile file(storename, "UPDATE");
+    file.WriteTObject(hist, treename, "WriteDelete");
+    cout << "Result storing in " << storename << " | " << treename << endl;
+    file.Close();
+    return 1;
+  }
+
   hist_foreach(hist, substract_hist, minchi);
 
   Double_t bestx[1], besty[1];
