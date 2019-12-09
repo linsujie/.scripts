@@ -20,5 +20,11 @@ EOF
   exit 1
 fi
 
-echo "#include \"`pwd`/$1\"" > ${BASH_SOURCE}_config.C
+if [[ ${1:0:1} == '/' ]]; then
+  include="#include \"$1\""
+else
+  include="#include \"`pwd`/$1\""
+fi
+
+echo $include > ${BASH_SOURCE}_config.C
 root -b -q ${BASH_SOURCE}.C

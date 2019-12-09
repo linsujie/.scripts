@@ -6,7 +6,7 @@ using namespace std;
 
 #include "CL_limits_config.C"
 
-const Double_t contour_level[] = { 2.2914, 6.1582, 11.6183 }; // for 0.682 0.954 0.997
+const Double_t contour_level[] = { 2.2914, 6.1582, 11.6183, 19.332, 28.738 }; // for 0.682 0.954 0.997 0.9999366 0.999999425
 
 const Double_t NHUGE = 1e300;
 const Double_t deltamax = 100;
@@ -144,9 +144,9 @@ void complete_circle(TGraph* gr)
   gr->SetPoint(gr->GetN(), x0, y0);
 }
 
-void draw_contour(TList* list, Int_t i, TLegend* leg)
+void draw_contour(TList* list, Int_t i, TLegend* leg, vector<TGraph*>& result)
 {
-  static const Int_t MyPalette[4] = { kRed + 2, kGreen + 1, kYellow, kWhite };
+  static const Int_t MyPalette[6] = { kRed + 2, kGreen + 1, kYellow + 1, kYellow, kGray, kWhite };
 
   Int_t iter = 0;
   Bool_t to_complete;
@@ -157,7 +157,7 @@ void draw_contour(TList* list, Int_t i, TLegend* leg)
     to_pow(gr);
     if (to_complete) complete_circle(gr);
 
-    gr->Draw("same f");
+    result.push_back(gr);
     gr->SetFillColor(MyPalette[i]);
     ostringstream lab;
     lab << i + 1 << "-#sigma";
@@ -166,15 +166,25 @@ void draw_contour(TList* list, Int_t i, TLegend* leg)
   }
 }
 
+void draw_line(const vector<vector<double> >& points) {
+  TGraph *gr = new TGraph();
+  for (const auto& p : points)
+    gr->SetPoint(gr->GetN(), p[0], p[1]);
+  gr->Draw("same l");
+}
+
 Int_t CL_limits()
 {
+  cerr << ">> initializing function" << endl;
   ini_function();
   vector<Double_t> xbounds = get_bound(xmin, xmax, xgrid),
     ybounds = get_bound(ymin, ymax, ygrid);
 
   TH2F *hist = new TH2F(treename, "distribution", xgrid, &(xbounds[0]), ygrid, &(ybounds[0]));
 
+  cerr << ">> filling histogram" << endl;
   hist_foreach(hist, fill_hist);
+  cerr << ">> finding min chi2" << endl;
   Double_t minchi = hist_foreach(hist, findmin);
 
   if (storename != "") {
@@ -185,6 +195,7 @@ Int_t CL_limits()
     return 1;
   }
 
+  cerr << ">> dealing histogram" << endl;
   hist_foreach(hist, substract_hist, minchi);
 
   Double_t bestx[1], besty[1];
@@ -196,12 +207,24 @@ Int_t CL_limits()
       }
   TGraph bestgr(1, bestx, besty);
 
-  hist->SetContour(3, contour_level);
-
   TCanvas can("distribution", "distribution", 1600, 1200);
   can.SetLogx(); can.SetLogy();
   can.SetMargin(0.12, 0.03, 0.12, 0.03);
   TLegend* leg = new TLegend(0.16, 0.72, 0.3, 0.94);
+
+#ifdef RAW_HIST
+  hist->SetStats(0);
+  hist->Draw("colz");
+  draw_extra(bestx[0], besty[0], minchi);
+  can.Print(outname);
+  return 0;
+#endif
+
+#ifndef NSIGMA
+#define NSIGMA 3
+#endif
+  hist->SetContour(NSIGMA, contour_level);
+  vector<TGraph*> grs;
 
   hist->SetStats(0);
   hist->Draw("cont list");
@@ -209,7 +232,10 @@ Int_t CL_limits()
   TObjArray *contours = (TObjArray*)gROOT->GetListOfSpecials()->FindObject("contours");
   Int_t ncontours = contours->GetSize();
   for (Int_t icontour = ncontours - 1; icontour >= 0; icontour--)
-    draw_contour((TList*)contours->At(icontour), icontour, leg);
+    draw_contour((TList*)contours->At(icontour), icontour, leg, grs);
+
+  can.Clear();
+  for (auto gr : grs) gr->Draw("same f");
 
   bestgr.Draw("same p");
   bestgr.SetMarkerStyle(22);
@@ -228,10 +254,17 @@ Int_t CL_limits()
   hist->GetXaxis()->SetTickSize(0);
   hist->GetXaxis()->SetLabelSize(0);
 
-  TGaxis *xaxis = new TGaxis(xmin, ymin, xmax, ymin, xmin, xmax, 505, "G");
-  TGaxis *yaxis = new TGaxis(xmin, ymin, xmin, ymax, ymin, ymax, 505, "G");
-  xaxis->Draw();
-  yaxis->Draw();
+  TGaxis *Xaxis = new TGaxis(xmin, ymin, xmax, ymin, xmin, xmax, 505, "G");
+  TGaxis *Yaxis = new TGaxis(xmin, ymin, xmin, ymax, ymin, ymax, 505, "G");
+  Xaxis->SetTitle(xaxis);
+  Yaxis->SetTitle(yaxis);
+  Xaxis->SetTitleSize(0.05);
+  Yaxis->SetTitleSize(0.05);
+  Yaxis->SetTitleOffset(1.15);
+  Xaxis->Draw();
+  Yaxis->Draw();
+
+  draw_line({ { xmin, ymax }, { xmax, ymax }, { xmax, ymin } });
 
   leg->Draw();
 

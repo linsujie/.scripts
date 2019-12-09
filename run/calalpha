@@ -1,29 +1,35 @@
 #!/bin/env ruby
 # encoding: utf-8
 
-require '~/ruby_cpp/Chisq/Chisq'
 require '~/.scripts/stringtof.rb'
 require 'escort'
+require 'gsl'
 require 'rainbow/ext/string'
 
 class CalAlpha < ::Escort::ActionCommand::Base
+  include GSL
   def execute
     opt = command_options
     if opt[:alpha] == 0.0
-      opt[:alpha] = Chisq::alpha(opt[:chi2], opt[:dof])
+      opt[:alpha] = Cdf::chisq_P(opt[:chi2], opt[:dof])
     else
-      opt[:chi2] = Chisq::chi2(opt[:alpha], opt[:dof])
+      opt[:chi2] = Cdf::chisq_Pinv(opt[:alpha], opt[:dof])
     end
 
-    opt[:rhomu] = rho_mu(opt[:dof], opt[:set])
-    opt[:rhosigma] = rho_sigma(opt[:dof], opt[:set])
+    opt[:rho] = %w(rho_mu rho_sigma).map { |f| send(f, opt[:dof], opt[:set]) }
+      .map { |v| format('%.4g', v) }.join(' +- ')
 
-    result = ['d.o.f', 'chi square', 'alpha', 'sigma', 'rho mu, sigma']
-      .map { |s| format("%-18.18s:", s).bright }
-      .zip([opt[:dof], opt[:chi2], opt[:alpha], Chisq::getnsig(opt[:alpha]), [opt[:rhomu], opt[:rhosigma]].join(' ')])
-      .map { |l| l.join(' ') }.join("\n")
+    sf_erf = GSL::Function.alloc { |x| Sf::erf(x / M_SQRT2) - opt[:alpha] }
+    opt[:sigma] = sf_erf.solve([0, 10])[0]
 
-    Escort::Logger.output.puts result
+    map_text = { dof: 'd.o.f', chi2: 'chi square', rho: 'rho [mu+-sigma]'}
+    ksize = map_text.to_a.max_by { |_, v| v.size }[1].size + 1
+
+    getkey = ->(k) { format("%-#{ksize}.#{ksize}s:", map_text[k] || k).bright }
+    getpair = ->(k) { "#{getkey.call(k)} #{opt[k]}" }
+
+    Escort::Logger.output.puts %w(dof chi2 alpha sigma rho)
+      .map { |k| getpair.call(k.to_sym) }.join("\n")
   end
 
   def rho_mu(n, nset)

@@ -41,7 +41,7 @@ class Converter < ::Escort::ActionCommand::Base
   ELEMENT_ERR = 'conv_char::the element to be coverted should be int or char'
   BOUND_ERR = 'conv_char::the element is out of the range of chosen map'
   def conv_char(element)
-    return @map[element] || raise(BOUND_ERR) if element.is_a?(Fixnum)
+    return @map[element] || raise(BOUND_ERR) if element.is_a?(Integer)
 
     raise ELEMENT_ERR if !element.is_a?(String)
     @map.index(element) || raise(BOUND_ERR)

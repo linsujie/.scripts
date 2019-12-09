@@ -9,7 +9,7 @@ class CallGraph < ::Escort::ActionCommand::Base
     @opt = global_options.merge(command_options)
 
     system("cat #{@opt[:infile].split(',').join(' ')} > combine_cppfile.cc")
-    system("clang++ -std=c++0x #{@opt[:option].gsub('*', '-')} -S -emit-llvm combine_cppfile.cc -o - | opt -analyze -std-link-opts -dot-callgraph")
+    system("clang++ -std=c++0x #{@opt[:option] && @opt[:option].gsub('*', '-')} -S -emit-llvm combine_cppfile.cc -o - | opt -analyze -std-link-opts -dot-callgraph")
 
     script = `cat callgraph.dot | c++filt`.each_line.to_a
     script.map! { |l| deal_bracket(l) }
