@@ -3,35 +3,35 @@
 
 # The class to supply interpolation methods
 class Interp
-  attr_reader :spectrum
+  attr_reader :available
 
   public
 
-  def initialize(x, y)
-    @spectrum = [x, y].transpose.sort_by { |t| t[0] }
+  # supported type is :lineline :linelog :logline :loglog
+  def initialize(x, y, type = :lineline)
+    /(?<xtype>line|log)(?<ytype>line|log)/ =~ type.to_s
+
+    raise "Interp::Please specify an exist interpolation type: [lineline, linelog, logline, loglog]" unless xtype && ytype
+
+    raise "Interp::input xvector andd yvector unaligned" unless x.size == y.size
+
+    @x, @y = x, y
+    @x.map! { |v| Math.log(v) } if xtype == 'log'
+    @y.map! { |v| Math.log(v) } if ytype == 'log'
+
+    @xconv = xtype == 'line' ? ->(v) { v } : ->(v) { Math.log(v) }
+    @yconv = ytype == 'line' ? ->(v) { v } : ->(v) { Math.exp(v) }
   end
 
-  def linask(x)
-    x1, y1, x2, y2 = find_points(x)
-    (x - x1) * (y2 -  y1) / (x2 - x1) + y1
-  end
+  def ask(x)
+    x = @xconv.call(x)
 
-  def lnask(x)
-    x1, y1, x2, y2 = find_points(x)
-    x, x1, y1, x2, y2 = [x, x1, y1, x2, y2].map { |v| Math.log([v, 1e-300].max) }
+    index = @x.bsearch_index { |v| v > x }
+    iup = [index || (@x.size - 1), 1].max
+    ilow = iup - 1
 
-    logy = (x - x1) * (y2 -  y1) / (x2 - x1) + y1
-    Math.exp(logy)
-  end
+    y = (@y[iup]-@y[ilow]) / (@x[iup]-@x[ilow]) * (x - @x[ilow]) + @y[ilow]
 
-  private
-
-  def find_points(x)
-    uind = @spectrum.find_index { |term| term[0] > x } || (@spectrum.size -  1)
-    uind += 1 if uind == 0
-    lind = uind - 1
-
-    [@spectrum[lind][0], @spectrum[lind][1],
-      @spectrum[uind][0], @spectrum[uind][1]]
+    y = @yconv.call(y)
   end
 end
