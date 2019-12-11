@@ -1,0 +1,27 @@
+#!/bin/env ruby
+# encoding: utf-8
+
+require 'json'
+
+if ARGV.empty? || ARGV.include?('-h') || ARGV.include?('--help')
+  puts <<-eof
+Usage:template_writer parameter_json_as_described_below
+         file: string, the filename of template file
+         out: string, optional, the filename of output template (it would be stdout if not given)
+         map: subjson, with the parameter name as key and the parameter value as value
+eof
+
+  exit(1)
+end
+
+parameter = JSON.parse(ARGV[0])
+
+outstr = File.new(parameter['file']).read
+
+parameter['map'].each { |k, v| outstr.sub!("%#{k}", v.to_s) }
+
+if /(?<variable> %[\w0-9]+ )/ =~ outstr
+  raise "The variable \033[01;32m#{variable.strip}\033[00m is not specified, do nothing and exit"
+end
+
+(parameter['out'] ? File.new(parameter['out'], 'w') : $stdout).puts outstr

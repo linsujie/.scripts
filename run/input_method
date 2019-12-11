@@ -1,7 +1,6 @@
 #!/bin/bash
 if [ `ps x | grep 'fcitx' | awk '{print $1}' | wc -w` == "1" ] ; then
-  export XMODIFIERS="@im=fcitx"
-  export GTK_IM_MODULE="fcitx"
-  export QT_IM_MODULE="fcitx"
-  fcitx
+  export XMODIFIERS="@im=xim"
+  export GTK_IM_MODULE="xim"
+  export QT_IM_MODULE="xim"
 fi

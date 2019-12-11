@@ -51,7 +51,7 @@ class Table
   def insert_line(iline, vec = [])
     @content.insert(iline, (0..@col_size - 1).map { |i| element(vec[i].to_s) })
     (0..@col_size - 1).each do |icol|
-      combine_up(iline, icol) unless up_ele?(iline + 1, icol)
+      combine_up(iline, icol) if (iline + 1 < @content.size) && !up_ele?(iline + 1, icol)
     end
     @line_size += 1
   end

@@ -75,12 +75,13 @@ class Drags
   end
 
   def drag(file)
+    return if File.size(file).zero?
     puts "Reading #{file}"
     return(deallargefile(file)) if File.size(file) > 1000000
 
-    arr = readfile(file, 3, true)
+    arr = readfile(file, 3)
     dealwrongfile(file) && return unless arr
-    arr[2].map!(&:to_f)
+    arr = arr.transpose.sort_by { |x| x[1] }.uniq { |x| x[1] }.transpose
 
     stachi, minchi = arr[2][0], arr[2].min
     arr[2].map! { |x| x - minchi }
