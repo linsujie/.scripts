@@ -151,6 +151,7 @@ class ScanExcludeLine
     js = JSON.parse(File.new(dataname(@opt[:xvec][0])).read)
     file.puts "# #{(@opt[:axisname] + get_key(js)).join("\t")}\n" + \
       @opt[:xvec].map { |x| format_line(get_exclude_point(x)) }.join("\n")
+    file.close
   end
 
   def get_exclude_point(x)
