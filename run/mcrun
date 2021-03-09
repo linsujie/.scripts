@@ -177,7 +177,7 @@ class MCRun < MCRunIni
   def getdist
     FileUtils.mkdir_p('out/distlog')
     @option[:head].each do |h|
-      system("./getdist inifile/distgalp#{h}.ini" + \
+      system("GetDist.py inifile/distgalp#{h}.ini" + \
              "| tee out/distlog/#{h}#{@time}")
     end
   end
