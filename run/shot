@@ -1,0 +1,7 @@
+#!/bin/env ruby
+
+SHOTPATH=ENV["HOME"] + "/Pictures/screenshots"
+indexes = Dir.foreach(SHOTPATH).map { |f| f.to_i }.uniq
+findex = ((1..indexes.size).to_a - indexes).sort[0]
+
+system("import #{SHOTPATH}/#{findex}.png")

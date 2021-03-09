@@ -19,8 +19,8 @@ class Range
 
   def input(arr)
     arr.map! { |term| term.map!(&:to_f) }
-    intp = Interp.new(arr[0], arr[1])
-    ytmp = @x.map { |x| intp.lnask(x) }
+    intp = Interp.new(arr[0], arr[1], :loglog)
+    ytmp = @x.map { |x| intp.ask(x) }
     inputy(ytmp)
   end
 

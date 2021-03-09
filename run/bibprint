@@ -105,7 +105,7 @@ class BibPrint < ::Escort::ActionCommand::Base
   end
 
   def analysis_item(item)
-    split_key = ->(l) { /^\s*(?<key>\w+)\s*=\s*\{(?<val>.+)\},\n$/ =~ l; [key, val] };
+    split_key = ->(l) { /^\s*(?<key>\w+)\s*=\s*"?\{?(?<val>.+?)\}?"?,\n$/ =~ l; [key, val] };
     item = item.map { |l| split_key.call(l) }.to_h
 
     raise "no author key found in item\n#{item}" if !item.has_key?('author')
