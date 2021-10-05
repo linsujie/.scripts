@@ -1,0 +1,6 @@
+#!/bin/env bash
+
+[ -e build/ ] || return 1
+
+cd build
+make
