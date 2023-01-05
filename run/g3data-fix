@@ -22,14 +22,14 @@ end
 
 def dealpoint(pt, ind)
     result = case idpendentp(pt)
-             when 3 then [pt[0].avg, pt[1].avg, pt[1].maxdiff / 2]
+             when 3 then [pt[0].avg, pt[1].sort[1], pt[1].maxdiff / 2]
              when 2
-               [pt[0].avg, pt.size == 3 ? mainv(pt[1]) : pt[1].avg, pt[1].maxdiff]
+               [pt[0].avg, mainv(pt[1]), pt[1].maxdiff]
              when 1 then [pt[0].avg, pt[1].avg, 0]
              end
 
     $pnoerr << ind + 1 if idpendentp(pt) == 1
-    $phalferr << ind + 1 if pt.size == 3 && idpendentp(pt) == 2
+    $phalferr << ind + 1 if idpendentp(pt) == 2
     result.map { |x| format("%.4e", x) }.join(' ')
 end
 
@@ -41,5 +41,5 @@ puts File.new(filename).each.map { |line| line.split(' ').map { |x| x.to_f } }
   .each_slice(twopoint ? 2 : 3).each_with_index.map { |pts, i| dealpoint(pts.transpose, i) }
 
 outst = ->(kind, inds) { "The points with #{kind} are: #{inds.join(' ')}" }
-puts outst.call('only half errbar', $phalferr) if !$phalferr.empty?
-puts outst.call('no errbar', $pnoerr) if !$pnoerr.empty?
+$stderr.puts outst.call('only half errbar', $phalferr) if !$phalferr.empty?
+$stderr.puts outst.call('no errbar', $pnoerr) if !$pnoerr.empty?

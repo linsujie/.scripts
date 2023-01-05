@@ -35,7 +35,7 @@ class ReadTable
   end
 
   def readline(line)
-    mark = '!' == line[0]
+    mark = ('!' == line[0])
     result = @title.zip(line.split(' ')).to_h.merge(mark: mark)
     @title.each { |k| result[k] = send(FORMAT[k], result[k]) if FORMAT[k] }
     result
@@ -64,13 +64,17 @@ class ReadExps < ::Escort::ActionCommand::Base
     debug = @opts[:verbosity] == 'DEBUG'
     detail = debug ? "\n" + exp[:nongausian].join("\n") : ''
 
-    "# #{exp[:exp_name]} possess nongausian points: " + \
+    "# #{exp_title(exp)} possess nongausian points: " + \
       exp[:nongausian].map { |pt| pt[:'<E>'] }.join(', ') + detail
+  end
+
+  def exp_title(exp)
+    exp[:exp_name] || (exp[:qty] + exp[:exp_name_sorted])
   end
 
   def exp_to_s(exp)
     return unless exp[:mark]
-    "# #{exp[:exp_name]}\n" + exp[:datas].map { |line| form(line) }.join("\n")
+    "##{exp_title(exp)}\n" + exp[:datas].sort_by { |l| l[:'<E>'] }.map { |line| form(line) }.join("\n")
   end
 
   def form(line)

@@ -1,0 +1,14 @@
+#!/bin/bash
+
+current_ip=`curl https://ipinfo.io/ip`
+iplabel=$1
+
+echo ">> Get IP: $current_ip"
+
+expect << EOF
+spawn ssh vultr_tokyo
+  expect "root@*" { send "./assign_ip.sh $current_ip $iplabel\r" }
+  expect "root@*" { send "./refresh_firewall.sh\r" }
+  expect "root@*" { send "exit\r" }
+expect eof
+EOF

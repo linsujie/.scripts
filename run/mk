@@ -1,6 +1,6 @@
 #!/bin/env bash
 
-[ -e build/ ] || return 1
+[ -e build/ ] || exit 1
 
 cd build
 make
