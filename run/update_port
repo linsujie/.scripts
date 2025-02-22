@@ -3,12 +3,16 @@
 
 require 'json'
 
-cfg = JSON.parse(File.new('/etc/v2ray/config.json').read)
+cfg = JSON.parse(File.new('/usr/local/etc/v2ray/config.json').read)
 
 port = cfg["outbounds"][0]["settings"]["vnext"][0]["port"]
 ip = cfg["outbounds"][0]["settings"]["vnext"][0]["address"]
+puts(">>Begin to check the port: #{port}")
 port_available=system('echo "\n" | telnet' + " #{ip} #{port} | grep Connected")
-exit 1 if port_available
+if port_available
+  puts ">> The port #{port} is still available, skip!"
+  exit 1
+end
 
 puts ">> Port #{port} is unavailable now, looking for new port..."
 new_port=`ssh vultr_tokyo "./show_port.sh"`.split(' ')[1].sub('"', '').to_i
@@ -16,5 +20,6 @@ puts ">> New Port found as #{new_port}"
 
 cfg["outbounds"][0]["settings"]["vnext"][0]["port"] = new_port
 cfgstr = JSON.pretty_generate(cfg)
-system("echo \'#{cfgstr}\' | sudo tee /etc/v2ray/config.json")
+system("echo \'#{cfgstr}\' | sudo tee /usr/local/etc/v2ray/config.json")
 system("sudo systemctl restart v2ray")
+puts ">> Changed to New Port: #{new_port}"

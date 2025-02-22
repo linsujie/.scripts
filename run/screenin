@@ -1,0 +1,15 @@
+#!/bin/bash
+
+if [ "$1" == "on" ]; then
+  pactl load-module module-loopback latency_msec=50
+  xset s off
+  xset -dpms
+  echo "It's ready to screen the input source now."
+fi
+
+if [ "$1" == "off" ]; then
+  pactl unload-module module-loopback
+  xset s 600
+  xset dpms 0 0 1200
+  echo "The computer is changed to the normal mode now."
+fi

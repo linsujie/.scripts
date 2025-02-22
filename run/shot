@@ -1,7 +1,10 @@
 #!/bin/env ruby
 
-SHOTPATH=ENV["HOME"] + "/Pictures/WeiXin"
-indexes = Dir.foreach(SHOTPATH).map { |f| f.to_i }.uniq
-findex = ((1..indexes.size).to_a - indexes).sort[0]
+SHOTPATH=ENV["HOME"] + "/WeChat_Data/home/xwechat_files/screen_shot/"
+indexes = Dir.foreach(SHOTPATH).select { |f| f[0..4] == "shot_" }
+  .map { |f| f[5..-1].to_i }.uniq
+findex = "shot_#{((1..indexes.size+4).to_a - indexes).sort[0]}"
 
-system("import #{SHOTPATH}/#{findex}.png")
+system("mv #{SHOTPATH}/shot_current.png #{SHOTPATH}/#{findex}.png")
+
+system("import #{SHOTPATH}/shot_current.png")

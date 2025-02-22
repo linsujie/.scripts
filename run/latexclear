@@ -1,2 +1,2 @@
 #!/bin/bash
-rm *.aux *.log *.out *.nav *.snm *.toc *.bbl *.blg */*.aux
+rm *.aux *.log *.out *.nav *.snm *.toc *.blg *fdb_latexmk *.fls *.xdv *.spl *.synctex.gz */*.aux */*/*.aux
