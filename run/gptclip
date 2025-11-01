@@ -1,0 +1,20 @@
+#!/bin/env ruby
+require 'clipboard'
+
+strs=Clipboard.paste
+
+if strs !~ /Polished Paragraph\n/
+  exit 0
+end
+
+txtlines = []
+active = false
+strs.each_line do |l|
+  active = false if l =~ /Modification Explanations$/
+  txtlines.push(l) if active
+  active = true if l =~ /Polished Paragraph$/
+end
+
+txt = txtlines.join.gsub(/\A\n+/, '').gsub(/\n+\z/, '')
+
+Clipboard.copy(txt)
