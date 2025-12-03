@@ -1,0 +1,4 @@
+#!/bin/env bash
+
+source /home/linsj/.config/python/venv/bin/activate
+summarize_py $1

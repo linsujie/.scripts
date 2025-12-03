@@ -1,5 +1,5 @@
 #!/bin/env bash
 
 /home/linsj/.scripts/run/gptclip
-sleep 0.5
+sleep 0.8
 xdotool key ctrl+v

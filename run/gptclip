@@ -10,9 +10,10 @@ end
 txtlines = []
 active = false
 strs.each_line do |l|
-  active = false if l =~ /Modification Explanations$/
+  p l, l =~ /^###.+Polished/
+  active = false if l =~ /^###.+Modification/
   txtlines.push(l) if active
-  active = true if l =~ /Polished Paragraph$/
+  active = true if l =~ /^###.+Polished/
 end
 
 txt = txtlines.join.gsub(/\A\n+/, '').gsub(/\n+\z/, '')

@@ -1,0 +1,256 @@
+#!/usr/bin/env python
+
+import os,sys,re
+from openai import OpenAI
+
+def split_text_with_overlap(file_path, max_chars=20000, overlap_ratio=0.1, encoding='utf-8'):
+    """
+    更精确控制重叠比例的文本分割
+    
+    参数:
+    - file_path: 文件路径
+    - max_chars: 每个字符串的最大字符数
+    - overlap_ratio: 重叠比例
+    - encoding: 文件编码
+    
+    返回:
+    - 包含分割后字符串的列表
+    """
+    # 读取所有行
+    with open(file_path, 'r', encoding=encoding) as file:
+        lines = file.readlines()
+    
+    if not lines:
+        return []
+    
+    # 计算每行的字符数（包括换行符）
+    line_lengths = [len(line) for line in lines]
+    
+    chunks = []
+    start_idx = 0
+    chunk_counter = 0
+    
+    while start_idx < len(lines):
+        chunk_counter += 1
+        
+        # 计算当前块的结束位置
+        current_size = 0
+        end_idx = start_idx
+        
+        # 累积行直到接近最大限制
+        while end_idx < len(lines) and current_size + line_lengths[end_idx] <= max_chars:
+            current_size += line_lengths[end_idx]
+            end_idx += 1
+        
+        # 如果当前块为空，直接跳出
+        if end_idx == start_idx:
+            break
+        
+        # 创建当前块
+        current_chunk = ''.join(lines[start_idx:end_idx])
+        chunks.append(current_chunk)
+        
+        #print(f"块 {chunk_counter}: 行 {start_idx+1}-{end_idx}, 字符数 {current_size}")
+        
+        # 如果已经是最后一行，结束
+        if end_idx >= len(lines):
+            break
+        
+        # 计算重叠部分：从当前块末尾开始，回溯找到合适的重叠起点
+        overlap_target = int(max_chars * overlap_ratio)
+        #print("overlap_target: ", overlap_target)
+        overlap_size = 0
+        new_start_idx = end_idx  # 默认从当前块结束位置开始
+        
+        # 向后回溯，累积重叠字符
+        for i in range(end_idx - 1, max(start_idx, end_idx - 40), -1):
+            overlap_size += line_lengths[i]
+            new_start_idx = i
+            if overlap_size >= overlap_target:
+                break
+        
+        # 确保新起始位置不会导致下一个块太小
+        if new_start_idx >= end_idx - 2:  # 如果重叠太少
+            new_start_idx = max(start_idx + 1, end_idx - 5)  # 至少重叠几行
+        
+        # 确保新起始位置不会导致无限循环
+        if new_start_idx <= start_idx:
+            new_start_idx = start_idx + 1
+        
+        # 确保不会超出文件范围
+        if new_start_idx >= len(lines):
+            break
+        
+        # 更新起始位置
+        start_idx = new_start_idx
+    
+    return chunks
+
+# 使用示例
+chunks = split_text_with_overlap(sys.argv[1], max_chars=20000, overlap_ratio = 0.1)
+
+extract = '''# 角色
+你是一名擅长概括故事剧情和人物的老练作家。你的名字是“提取者”
+
+# 核心能力
+- 你擅长搜寻故事中的关键事件点。
+- 你擅长以精炼的语言推理所有已知事件的关系。
+
+# 行为准则
+- **忠实概括**：你会忠实地概括文本，对于所有推测或者存疑的信息都会作出“推测”或者“未知”的标记。
+- **JSON专家**：你的输出都会整理成JSON格式
+
+# 工作流程
+1.完整阅读我给定的文本
+2.概括并记录文本描述的关键事件，记录事件名称，参与角色与梗概
+3.整理文本人物的角色卡信息，包括基本信息，任务背景，人物特点，人物属性(包含武力/智力/魅力/心机/毅力，1-10分)四大方面，未知信息可暂标问号
+4.将故事关键节点和人物角色卡信息输出
+
+以下是文本：'''
+
+os.path.isdir("extracted") or os.mkdir("extracted")
+for i in range(len(chunks)):
+  fname = f"extracted/{i}.json"
+  if os.path.isfile(fname):
+    print("-- skiping exist summary block", i)
+    continue
+
+  print("-- dealing with block", i)
+  # 构造 client
+  client = OpenAI(
+      api_key="sk-65df50e7a5b94ac99ce40b8ee88aed18", # APIKey
+      base_url="https://api.deepseek.com" # endpoint
+  )
+  
+  ## 自定义参数传参示例
+  completion = client.chat.completions.create(
+      model="deepseek-reasoner",
+  #    model="hunyuan-turbo-latest",
+      messages=[
+          { "role": "system", "content": extract },
+          { "role": "user", "content": chunks[i] },
+      ],
+      stream = False,
+      temperature = 1.3
+  )
+  with open(fname, "w", encoding="utf-8") as f:
+    f.write(completion.model_dump()['choices'][0]['message']['content'])
+  #results.append(completion.model_dump()['choices'][0]['message']['content'])
+
+combiner = '''# 角色
+你是一名擅长整理剧情和人物的老练作家。你的名字是“提纲作者”
+
+# 核心能力
+- 你擅长将有关联的关键事件整理合并。
+- 你擅长根据已知信息综合评判角色特质。
+
+# 行为准则
+- **忠实概括**：你会忠实地概括文本，对于所有推测或者存疑的信息都会作出“推测”或者“未知”的标记。
+- **JSON专家**：你能轻易读取JSON，你输出都会整理成JSON格式
+
+# 工作流程
+1.完整阅读我给定的JSON输入
+2.将JSON数组中多个对象综合整理合并，合并规则如下：
+   - **重复事件合并**：如果两个事件指代相同，则综合两者信息，合并为一条事件记录。
+   - **角色综合**: 对于每个角色，综合考虑其在所有对象中的属性信息和相关联的事件信息，综合出该角色的最终属性和事件记录，维持角色属性格式。
+   - **角色保留**: 保留所有角色，即使其只在一个对象中出现。
+   - **事件总括**: 在总事件数超过20个时，试图寻找若干小事件的关联性，并将有关联者合并，维持总事件数小于等于20。
+3.将合并后的JSON输出，若角色基本信息中未包含（DND九宫格）阵营信息，根据当前信息补充此条目。
+
+以下是JSON输入：'''
+
+def read_all_files_to_strings_simple(folder_path: str) -> list[str]:
+    """
+    简化版本：读取文件夹中所有文本文件
+    
+    Args:
+        folder_path: 文件夹路径
+        
+    Returns:
+        包含所有文件内容的字符串列表
+    """
+    if not os.path.exists(folder_path):
+        raise FileNotFoundError(f"文件夹不存在: {folder_path}")
+    
+    contents = dict()
+    for filename in os.listdir(folder_path):
+        findex = filename.replace('.json', '')
+        filepath = os.path.join(folder_path, filename)
+        if os.path.isfile(filepath):
+            try:
+                with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+                    fstr = re.sub(r'(^```json|```$)', '', f.read()).strip('\n')
+                    contents[findex] = fstr
+            except Exception as e:
+                print(f"跳过文件 {filename}: {e}")
+    
+    return contents
+
+def split_slices(js, max_chars):
+    islices, icurrent = [], []
+    slices, current = [], []
+    key = sorted(js.keys(), key=lambda k: int(re.sub(r'-\d+', '', k)))
+    print(key)
+
+    for k in key:
+        j = js[k]
+        if sum(map(lambda v: len(v), current)) + len(j) > max_chars:
+            islices.append(icurrent)
+            slices.append(current)
+            icurrent = [k]
+            current = [j]
+        else:
+            icurrent.append(k)
+            current.append(j)
+    if current:
+        islices.append(icurrent)
+        slices.append(current)
+    kslice = map(lambda ivec: (f"{ivec[0]}" if len(ivec) == 1 else f"{re.sub(r'-\d+', '', ivec[0])}-{re.sub(r'\d+-', '', ivec[-1])}"), islices)
+    return dict(zip(kslice, slices))
+def combine_bat(bat, js):
+  if len(js) <= 1:
+    print("-- skiping single batch", bat)
+    return
+  fname = f"combined/{bat}.json"
+  if os.path.isfile(fname):
+    print("-- skiping exist combined block", bat)
+    return
+
+  print("-- combining batch: ", bat)
+  str = "[\n" + (',\n').join(js) + "\n]"
+
+  client = OpenAI(
+      api_key="sk-65df50e7a5b94ac99ce40b8ee88aed18", # APIKey
+      base_url="https://api.deepseek.com" # endpoint
+  )
+
+  completion = client.chat.completions.create(
+      model="deepseek-reasoner",
+  #    model="hunyuan-turbo-latest",
+      messages=[
+          { "role": "system", "content": combiner },
+          { "role": "user", "content": str },
+      ],
+      stream = False,
+      temperature = 1.3
+  )
+  with open(fname, "w", encoding="utf-8") as f:
+    f.write(completion.model_dump()['choices'][0]['message']['content'])
+
+def join_batchs(js, max_chars = 15000):
+  bat = split_slices(js, max_chars)
+  for k in bat:
+     print(k, ' --> ', list(map(lambda s: len(s), bat[k])))
+  for k in bat:
+    combine_bat(k, bat[k])
+    with open(f"combined/{k}.json", 'r', encoding='utf-8', errors='ignore') as f:
+      bat[k] = f.read()
+  return bat
+
+js = read_all_files_to_strings_simple("extracted")
+
+os.path.isdir("combined") or os.mkdir("combined")
+js = join_batchs(js, max_chars = 20000)
+js = join_batchs(js, max_chars = 30000)
+js = join_batchs(js, max_chars = 30000)
+js = join_batchs(js, max_chars = 30000)
