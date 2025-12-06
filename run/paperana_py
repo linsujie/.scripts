@@ -1,0 +1,14 @@
+#!/bin/env python
+import os,sys,re,time
+from PaperAnalysis.PaperAnalysisAgent import PaperAnalysisAgent
+from PaperAnalysis.PaperParser import PaperParser
+
+API_KEY = "sk-65df50e7a5b94ac99ce40b8ee88aed18"
+
+if not os.path.isfile(sys.argv[1]):
+  print(f"目标文件{sys.argv[1]}不存在！请检查")
+  exit(0)
+
+paper = PaperParser(sys.argv[1])
+agent = PaperAnalysisAgent(paper, API_KEY)
+agent.run_all_steps()

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
-import os,sys,re
+import os,sys,re,time
+import multiprocessing
 from openai import OpenAI
 
 def split_text_with_overlap(file_path, max_chars=20000, overlap_ratio=0.1, encoding='utf-8'):
@@ -87,7 +88,8 @@ def split_text_with_overlap(file_path, max_chars=20000, overlap_ratio=0.1, encod
     return chunks
 
 # 使用示例
-chunks = split_text_with_overlap(sys.argv[1], max_chars=20000, overlap_ratio = 0.1)
+chunks = split_text_with_overlap(sys.argv[1], max_chars=30000, overlap_ratio = 0.1)
+print("-- separating to", len(chunks), "blocks")
 
 extract = '''# 角色
 你是一名擅长概括故事剧情和人物的老练作家。你的名字是“提取者”
@@ -108,14 +110,15 @@ extract = '''# 角色
 
 以下是文本：'''
 
-os.path.isdir("extracted") or os.mkdir("extracted")
-for i in range(len(chunks)):
+def extracting(data):
+  i, chunk = data
   fname = f"extracted/{i}.json"
   if os.path.isfile(fname):
     print("-- skiping exist summary block", i)
-    continue
+    return
 
   print("-- dealing with block", i)
+
   # 构造 client
   client = OpenAI(
       api_key="sk-65df50e7a5b94ac99ce40b8ee88aed18", # APIKey
@@ -125,10 +128,9 @@ for i in range(len(chunks)):
   ## 自定义参数传参示例
   completion = client.chat.completions.create(
       model="deepseek-reasoner",
-  #    model="hunyuan-turbo-latest",
       messages=[
           { "role": "system", "content": extract },
-          { "role": "user", "content": chunks[i] },
+          { "role": "user", "content": chunk },
       ],
       stream = False,
       temperature = 1.3
@@ -136,6 +138,13 @@ for i in range(len(chunks)):
   with open(fname, "w", encoding="utf-8") as f:
     f.write(completion.model_dump()['choices'][0]['message']['content'])
   #results.append(completion.model_dump()['choices'][0]['message']['content'])
+
+os.path.isdir("extracted") or os.mkdir("extracted")
+data = zip(range(len(chunks)), chunks)
+
+pool = multiprocessing.Pool(processes=10)
+
+pool.map(extracting, data)
 
 combiner = '''# 角色
 你是一名擅长整理剧情和人物的老练作家。你的名字是“提纲作者”
@@ -154,8 +163,28 @@ combiner = '''# 角色
    - **重复事件合并**：如果两个事件指代相同，则综合两者信息，合并为一条事件记录。
    - **角色综合**: 对于每个角色，综合考虑其在所有对象中的属性信息和相关联的事件信息，综合出该角色的最终属性和事件记录，维持角色属性格式。
    - **角色保留**: 保留所有角色，即使其只在一个对象中出现。
-   - **事件总括**: 在总事件数超过20个时，试图寻找若干小事件的关联性，并将有关联者合并，维持总事件数小于等于20。
+   - **事件总括**: 在总事件数超过15个时，试图寻找若干小事件的关联性，并将有关联者合并，维持总事件数小于等于15。
 3.将合并后的JSON输出，若角色基本信息中未包含（DND九宫格）阵营信息，根据当前信息补充此条目。
+
+以下是JSON输入：'''
+
+simplifer = '''# 角色
+你是一名擅长抓住关键剧情的老练作家。你的名字是“提炼者”
+
+# 核心能力
+- 你擅长将有关联的关键事件整理合并。
+- 你擅长精简对角色描述以及对事件的描述。
+
+# 行为准则
+- **忠实概括**：你会忠实地概括文本，对于所有推测或者存疑的信息都会作出“推测”或者“未知”的标记。
+- **JSON专家**：你能轻易读取JSON，你输出都会整理成JSON格式
+
+# 工作流程
+1.完整阅读我给定的JSON输入，
+2.将JSON中的事件和角色信息进一步整理提炼：
+   - **事件总括**: 试图提炼事件中的主线，在有可能的情况下，将相关的小事件合并。
+   - **角色信息提炼**: 适度精简角色的描述，维持角色属性格式。
+   - **角色保留**: 注意保留所有角色。
 
 以下是JSON输入：'''
 
@@ -207,17 +236,37 @@ def split_slices(js, max_chars):
         slices.append(current)
     kslice = map(lambda ivec: (f"{ivec[0]}" if len(ivec) == 1 else f"{re.sub(r'-\d+', '', ivec[0])}-{re.sub(r'\d+-', '', ivec[-1])}"), islices)
     return dict(zip(kslice, slices))
-def combine_bat(bat, js):
-  if len(js) <= 1:
-    print("-- skiping single batch", bat)
-    return
+def combine_bat(data):
+  bat, js = data
+
   fname = f"combined/{bat}.json"
+  if len(js) <= 1:
+    print("-- simplfing single batch", bat)
+    client = OpenAI(
+        api_key="sk-65df50e7a5b94ac99ce40b8ee88aed18", # APIKey
+        base_url="https://api.deepseek.com" # endpoint
+    )
+  
+    completion = client.chat.completions.create(
+        model="deepseek-reasoner",
+        messages=[
+            { "role": "system", "content": simplifer },
+            { "role": "user", "content": js[0] },
+        ],
+        stream = False,
+        temperature = 1.3
+    )
+    with open(fname, "w", encoding="utf-8") as f:
+      f.write(completion.model_dump()['choices'][0]['message']['content'])
+
+    return
+
   if os.path.isfile(fname):
     print("-- skiping exist combined block", bat)
     return
 
   print("-- combining batch: ", bat)
-  str = "[\n" + (',\n').join(js) + "\n]"
+  strs = "[\n" + (',\n').join(js) + "\n]"
 
   client = OpenAI(
       api_key="sk-65df50e7a5b94ac99ce40b8ee88aed18", # APIKey
@@ -226,10 +275,9 @@ def combine_bat(bat, js):
 
   completion = client.chat.completions.create(
       model="deepseek-reasoner",
-  #    model="hunyuan-turbo-latest",
       messages=[
           { "role": "system", "content": combiner },
-          { "role": "user", "content": str },
+          { "role": "user", "content": strs },
       ],
       stream = False,
       temperature = 1.3
@@ -237,12 +285,16 @@ def combine_bat(bat, js):
   with open(fname, "w", encoding="utf-8") as f:
     f.write(completion.model_dump()['choices'][0]['message']['content'])
 
+pool_join = multiprocessing.Pool(processes=10)
 def join_batchs(js, max_chars = 15000):
   bat = split_slices(js, max_chars)
   for k in bat:
      print(k, ' --> ', list(map(lambda s: len(s), bat[k])))
+
+  data = zip(bat.keys(), bat.values())
+  pool_join.map(combine_bat, data)
+
   for k in bat:
-    combine_bat(k, bat[k])
     with open(f"combined/{k}.json", 'r', encoding='utf-8', errors='ignore') as f:
       bat[k] = f.read()
   return bat
@@ -251,6 +303,5 @@ js = read_all_files_to_strings_simple("extracted")
 
 os.path.isdir("combined") or os.mkdir("combined")
 js = join_batchs(js, max_chars = 20000)
-js = join_batchs(js, max_chars = 30000)
-js = join_batchs(js, max_chars = 30000)
-js = join_batchs(js, max_chars = 30000)
+while len(js) > 1:
+  js = join_batchs(js, max_chars = 40000)
