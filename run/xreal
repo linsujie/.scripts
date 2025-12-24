@@ -1,0 +1,90 @@
+#!/bin/env ruby
+
+def screen_info
+  monitors = `xrandr --listmonitors`
+  info = {}
+
+  current_mon = nil
+  `xrandr`.each_line do |l|
+    m = l.match(/^(?<monitor>.+)\s(?<stat>connected|disconnected)/)
+
+    if m
+      current_mon = m[:monitor]
+      info[current_mon] = {}
+      info[current_mon]["connected"] = (m[:stat] == "connected")
+      info[current_mon]["on"] = monitors.include?(" #{current_mon}")
+      info[current_mon]["mode"] = []
+    elsif current_mon
+      mmode = l.match(/\s*(?<mode>\d+x\d+).*/)
+      info[current_mon]["mode"].push(mmode[:mode])
+    end
+  end
+
+  info
+end
+
+INFO = screen_info
+DEFAULTS = { "eDP-1" => { "primary" => true, "mode" => "1920x1200", "rotate" => "normal" } }
+def get_plan(mon, turn_on)
+  return { "off" => true } if !turn_on
+
+  return DEFAULTS[mon] if DEFAULTS[mon]
+  return { "off" => true } if INFO[mon]["mode"].empty?
+  { "primary" => false, "mode" => INFO[mon]["mode"][0], "rotate" => "normal" }
+end
+
+def boolean?(v)
+  v == true || v == false
+end
+
+def add_position(plan)
+  x0, y0 = 0, 0
+  ['DP-1', 'DP-2', 'DP-3', 'DP-4', 'eDP-1'].each do |mon|
+    next if plan[mon]['off']
+
+    plan[mon]['pos'] = "#{x0}x#{y0}"
+    m = plan[mon]['mode'].match(/\d+x(?<height>\d+)/)
+    y0 += m[:height].to_i
+  end
+end
+
+def sgl_option(k, v)
+  if !boolean?(v)
+    return "--#{k} #{v}"
+  end
+
+  v ? "--#{k}" : ''
+end
+
+def mon_option(mon, v)
+  v.reduce("--output #{mon}") { |a, (k, v)| "#{a} #{sgl_option(k, v)}" }
+end
+
+def get_option(plan)
+  plan.reduce('') { |acc, (m, v)| "#{acc} #{mon_option(m, v)}" }
+end
+
+def turn_on_policy(mon)
+  return true if mon == 'eDP-1'
+  !INFO[mon]["on"]
+end
+
+def restart_tilda(pos)
+  system("killall tilda")
+  sleep(1)
+
+  tilda_config = "/home/linsj/.config/tilda/config_xreal"
+
+  x0, y0 = pos.split('x').map(&:to_i)
+  y0 += 35
+  p ("sed -i -r \"s:y_pos=[0-9]+:y_pos=#{y0}:g\" #{tilda_config}")
+  system("sed -i -r \"s:y_pos=[0-9]+:y_pos=#{y0}:g\" #{tilda_config}")
+  p `grep y_pos #{tilda_config}`
+  system("tilda -g #{tilda_config} &")
+end
+
+plan = INFO.map { |k, | [k, get_plan(k, turn_on_policy(k))] }.to_h
+add_position(plan)
+
+system("xrandr #{get_option(plan)}")
+restart_tilda(plan['eDP-1']['pos'])

@@ -209,7 +209,7 @@ Introduction内容:
         print("=" * 60)
         
         if skip_chapters is None:
-            skip_chapters = ["conclusion", "acknowledgments", "reference", "appendix"]
+            skip_chapters = ["conclusion", "acknowledgements", "acknowledgments", "reference", "appendix"]
         
         # 跳过第一章（Introduction）
         chapters_to_process = []

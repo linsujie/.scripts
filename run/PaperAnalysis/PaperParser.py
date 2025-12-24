@@ -113,7 +113,7 @@ class PaperParser:
                     current_content = []
                 
                 # 创建新章节
-                section_title = re.sub(r'^#\s*([IVXLCDM]+|\d+).\s*', '', stripped)
+                section_title = re.sub(r'^#\s*([IVXLCDM]+|\d+).?\s*', '', stripped)
                 current_section = Section(title=section_title)
                 current_subsection = None
             
@@ -126,7 +126,7 @@ class PaperParser:
                     current_content = []
                 
                 # 创建新子章节
-                subsection_title = re.sub(r'^##\s*([A-Za-z]|\d+).\s*', '', stripped)
+                subsection_title = re.sub(r'^##\s*([A-Za-z]|\d+).?\s*', '', stripped)
                 current_subsection = Section(title=subsection_title)
             
             # 如果是章节内容
