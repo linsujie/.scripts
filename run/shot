@@ -1,6 +1,6 @@
 #!/bin/env ruby
 
-SHOTPATH=ENV["HOME"] + "/WeChat_Data/home/xwechat_files/screen_shot/"
+SHOTPATH=ENV["HOME"] + "/Pictures/screenshots/"
 indexes = Dir.foreach(SHOTPATH).select { |f| f[0..4] == "shot_" }
   .map { |f| f[5..-1].to_i }.uniq
 findex = "shot_#{((1..indexes.size+4).to_a - indexes).sort[0]}"

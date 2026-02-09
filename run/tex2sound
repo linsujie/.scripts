@@ -1,0 +1,4 @@
+#!/bin/env bash
+source ~/.config/python/venv/bin/activate
+tex2sound_script=`readlink -f ~/.scripts/run/tex2sound.py`
+${tex2sound_script} $@

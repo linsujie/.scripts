@@ -40,7 +40,7 @@ class BibPrint < ::Escort::ActionCommand::Base
 
     label = command_options[:firstnamefirst] ? pname.reverse.join(' ') : pname.join(', ')
 
-    return label unless name.reverse.join(' ') == command_options[:specialname]
+    return label unless command_options[:specialnames].include?(name.reverse.join(' '))
     command_options[:specialnameformat].sub('%name', label)
   end
 
@@ -105,7 +105,7 @@ class BibPrint < ::Escort::ActionCommand::Base
   end
 
   def analysis_item(item)
-    split_key = ->(l) { /^\s*(?<key>\w+)\s*=\s*"?\{?(?<val>.+?)\}?"?,\n$/ =~ l; [key, val] };
+    split_key = ->(l) { /^\s*(?<key>\w+)\s*=\s*"?\{?(?<val>.+?)\}?"?,?\n$/ =~ l; [key, val] };
     item = item.map { |l| split_key.call(l) }.to_h
 
     raise "no author key found in item\n#{item}" if !item.has_key?('author')
@@ -142,7 +142,7 @@ The '%' and '{}' (it could be changed to '[]' or '<>' by option --rbrace) are re
       short: :none, long: '--name-connective', type: :string, default: ', '
     opts.opt :lastnameconnectives, 'The last name-connective could be different from the former',
       short: :none, long: '--last-name-connective', type: :string, default: ' and '
-    opts.opt :specialname, 'The special name to high light, in format %firstname %lastname',
+    opts.opt :specialnames, 'The special name to high light, in format %firstname1 %lastname1, %firstname2 %lastname2...',
       short: :none, long: '--special-name', type: :string
     opts.opt :specialnameformat, 'The format for special-name, for example "\textbf{%name}"',
       short: :none, long: '--special-name-format', type: :string
