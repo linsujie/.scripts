@@ -8,3 +8,4 @@ findex = "shot_#{((1..indexes.size+4).to_a - indexes).sort[0]}"
 system("mv #{SHOTPATH}/shot_current.png #{SHOTPATH}/#{findex}.png")
 
 system("import #{SHOTPATH}/shot_current.png")
+system("xclip -selection clipboard -t image/png -i #{SHOTPATH}/shot_current.png")
